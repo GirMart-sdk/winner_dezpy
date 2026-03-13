@@ -1,0 +1,6 @@
+node_modules/
+backend/*.db
+.env
+.vscode/
+.gemini/
+*.log
