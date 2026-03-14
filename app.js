@@ -493,6 +493,90 @@ function renderProducts(filter) {
 
   // Re-observe new cards for reveal animation
   observeRevealElements();
+  injectProductJsonLd(PRODUCTS);
+}
+
+function buildProductUrl(productId) {
+  const url = new URL(window.location.origin);
+  url.pathname = "/";
+  url.searchParams.set("product", productId);
+  url.hash = "productos";
+  return url.href;
+}
+
+function buildProductSchema(products) {
+  const listItems = products.map((product, index) => {
+    const metadata = product.metadata || {};
+    const hasStock = Object.values(product.stock || {}).some((qty) => qty > 0);
+    const priceValue = Number(product.price || 0).toFixed(2);
+    const color =
+      metadata.color &&
+      metadata.color
+        .split(/[\/,]/)
+        .map((c) => c.trim())
+        .filter(Boolean)[0];
+    const sizes =
+      metadata.size
+        ?.split(",")
+        .map((s) => s.trim())
+        .filter(Boolean) || [];
+
+    return {
+      "@type": "ListItem",
+      position: index + 1,
+      item: {
+        "@type": "Product",
+        sku: product.id,
+        mpn: metadata.mpn,
+        gtin13: metadata.gtin,
+        name: product.name,
+        description:
+          metadata.productType && metadata.productType !== product.cat
+            ? `${product.name} · ${metadata.productType} by Winner.`
+            : `Ropa urbana Winner inspirada en el streetwear colombiano con ${product.name}`,
+        brand: {
+          "@type": "Brand",
+          name: metadata.brand || "Winner",
+        },
+        image: product.img,
+        color,
+        size: sizes.length ? sizes : undefined,
+        category: metadata.productType || product.cat,
+        material: metadata.material,
+        pattern: metadata.pattern,
+        offers: {
+          "@type": "Offer",
+          url: buildProductUrl(product.id),
+          priceCurrency: "COP",
+          price: priceValue,
+          availability: hasStock
+            ? "https://schema.org/InStock"
+            : "https://schema.org/OutOfStock",
+          itemCondition: "https://schema.org/NewCondition",
+          shippingWeight: metadata.shippingWeight,
+        },
+      },
+    };
+  });
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: listItems,
+  };
+}
+
+function injectProductJsonLd(products) {
+  if (!products.length) return;
+  const scriptId = "product-json-ld";
+  let script = document.getElementById(scriptId);
+  if (!script) {
+    script = document.createElement("script");
+    script.type = "application/ld+json";
+    script.id = scriptId;
+    document.head.appendChild(script);
+  }
+  script.textContent = JSON.stringify(buildProductSchema(products), null, 2);
 }
 
 /* ── FILTER BUTTONS ─────────────────────────────────────── */
