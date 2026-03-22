@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>WINNER — Panel Administrativo</title>
   <link rel="stylesheet" href="admin-panel.css"/>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <!-- QR Generator -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <!-- QR Scanner -->
@@ -128,7 +128,7 @@
         <p>Resumen general de Winner</p>
       </div>
       <div class="kpi-grid">
-        <div class="kpi-card">
+        <div class="kpi-card clickable" id="kpiCardSales">
           <div class="kpi-icon" style="background:rgba(232,255,71,0.1)">💰</div>
           <div class="kpi-info">
             <div class="kpi-val" id="kpiVentasHoy">$0</div>
@@ -136,14 +136,14 @@
           </div>
           <div class="kpi-trend up" id="kpiTrendHoy">+0%</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card clickable" id="kpiCardProducts">
           <div class="kpi-icon" style="background:rgba(46,204,113,0.1)">📦</div>
           <div class="kpi-info">
             <div class="kpi-val" id="kpiProducts">0</div>
             <div class="kpi-label">Productos activos</div>
           </div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card clickable" id="kpiCardLowStock">
           <div class="kpi-icon" style="background:rgba(255,107,107,0.1)">⚠️</div>
           <div class="kpi-info">
             <div class="kpi-val" id="kpiLowStock" style="color:#ff6b6b">0</div>
@@ -197,6 +197,8 @@
           <option value="accesorios">Accesorios</option>
         </select>
         <button class="btn-accent" onclick="openProductModal()">+ Nuevo producto</button>
+        <button class="btn-ghost" onclick="triggerStockUpload()">⬆ Subir stock CSV</button>
+        <input type="file" id="invCsvInput" accept=".csv" style="display:none" onchange="handleStockUpload(event)"/>
         <button class="btn-ghost" onclick="printAllQRs()">🖨 Imprimir todos los QR</button>
       </div>
       <div class="inv-cards" id="invCards"></div>
@@ -249,12 +251,9 @@
             <div class="pos-subtotal-row total-row"><span>TOTAL</span><span id="posTotal" class="pos-total-val">$0</span></div>
           </div>
 
-          <div class="pos-payment">
-            <label class="pos-pay-label">Método de pago</label>
-            <div class="pos-pay-grid" id="posPayGrid"></div>
-          </div>
+          <div id="posPayGrid" class="pos-pay-grid" style="display:none"></div>
 
-          <button class="pos-confirm-btn" onclick="confirmPOSSale()">
+          <button class="pos-confirm-btn" onclick="openPOSPaymentModal()">
             ✓ CONFIRMAR VENTA
           </button>
         </div>
@@ -272,7 +271,7 @@
 
         <!-- NACIONALES -->
         <div class="pay-section-block">
-          <div class="pay-section-label">
+          <div class="pay-section-label" onclick="togglePaySection('payNational')">
             <span class="pay-flag">🇨🇴</span> Pagos Nacionales — Colombia
           </div>
           <div class="pay-methods-grid" id="payNational"></div>
@@ -280,7 +279,7 @@
 
         <!-- BILLETERAS DIGITALES -->
         <div class="pay-section-block">
-          <div class="pay-section-label">
+          <div class="pay-section-label" onclick="togglePaySection('payWallets')">
             <span class="pay-flag">📱</span> Billeteras Digitales
           </div>
           <div class="pay-methods-grid" id="payWallets"></div>
@@ -288,7 +287,7 @@
 
         <!-- CONTRA ENTREGA -->
         <div class="pay-section-block">
-          <div class="pay-section-label">
+          <div class="pay-section-label" onclick="togglePaySection('payDelivery')">
             <span class="pay-flag">🚚</span> Contra Entrega
           </div>
           <div class="pay-methods-grid" id="payDelivery"></div>
@@ -296,7 +295,7 @@
 
         <!-- INTERNACIONALES -->
         <div class="pay-section-block">
-          <div class="pay-section-label">
+          <div class="pay-section-label" onclick="togglePaySection('payIntl')">
             <span class="pay-flag">🌎</span> Pagos Internacionales
           </div>
           <div class="pay-methods-grid" id="payIntl"></div>
@@ -394,6 +393,10 @@
       <div class="page-header">
         <h1>Escáner QR</h1>
         <p>Escanea para registrar producto nuevo o agregarlo a una venta</p>
+      </div>
+      <div class="qr-mobile-help">
+        <button class="btn-ghost" onclick="openMobileScannerLink()">Usar cámara del celular</button>
+        <span class="qr-mobile-hint">Abre el escáner en tu teléfono y apunta a este código</span>
       </div>
       <div class="scanner-layout">
         <div class="scanner-card">
@@ -566,6 +569,64 @@
   </div>
   <div class="modal-footer">
     <button class="btn-ghost" onclick="closePOSScanner()">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL: SELECCIONAR MÉTODO DE PAGO POS -->
+<div class="modal-overlay" id="posPayOverlay" onclick="closePOSPaymentModal()"></div>
+<div class="modal modal-sm" id="posPayModal">
+  <div class="modal-header">
+    <h3>Selecciona el método de pago</h3>
+    <button class="modal-close" onclick="closePOSPaymentModal()">✕</button>
+  </div>
+  <div class="modal-body" id="posPayOptions" style="display:flex;flex-direction:column;gap:10px"></div>
+  <div class="modal-footer">
+    <button class="btn-ghost" onclick="closePOSPaymentModal()">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL: EDITAR MÉTODO DE PAGO -->
+<div class="modal-overlay" id="payMethodModalOverlay" onclick="closePayMethodEditor()"></div>
+<div class="modal modal-sm" id="payMethodModal">
+  <div class="modal-header">
+    <h3>Editar método de pago</h3>
+    <button class="modal-close" onclick="closePayMethodEditor()">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="form-group">
+      <label>Nombre visible</label>
+      <input type="text" id="payEditName" />
+    </div>
+    <div class="form-group">
+      <label>Tipo / canal</label>
+      <input type="text" id="payEditType" disabled />
+    </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="payEditEnabled"/>
+      <label for="payEditEnabled" style="margin:0">Habilitado para cobrar</label>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-ghost" onclick="closePayMethodEditor()">Cancelar</button>
+    <button class="btn-accent" onclick="savePayMethodEditor()">Guardar</button>
+  </div>
+</div>
+
+<!-- MODAL: ENLACE ESCÁNER MÓVIL -->
+<div class="modal-overlay" id="mobileScanOverlay" onclick="closeMobileScannerLink()"></div>
+<div class="modal modal-sm" id="mobileScanModal">
+  <div class="modal-header">
+    <h3>Escanear desde el celular</h3>
+    <button class="modal-close" onclick="closeMobileScannerLink()">✕</button>
+  </div>
+  <div class="modal-body" style="text-align:center">
+    <div id="mobileScanQR" style="display:inline-block;padding:14px;background:#fff;border-radius:10px"></div>
+    <p style="font-size:12px;color:var(--gray-text);margin-top:10px">
+      Escanea este código con tu teléfono para abrir el escáner QR directamente y usar su cámara.
+    </p>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-ghost" onclick="closeMobileScannerLink()">Listo</button>
   </div>
 </div>
 

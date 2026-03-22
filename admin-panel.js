@@ -8,11 +8,6 @@
 /* ══════════════════════════════════════════════════════════
    CONFIG
 ══════════════════════════════════════════════════════════ */
-const USERS = [
-  { user: 'admin',   pass: 'winner2026', role: 'Administrador', avatar: 'A' },
-  { user: 'vendedor',pass: 'venta123',   role: 'Vendedor',      avatar: 'V' },
-];
-
 const SIZES = ['XS','S','M','L','XL','XXL'];
 
 /* ══════════════════════════════════════════════════════════
@@ -27,15 +22,30 @@ let session   = LS.get('session', null);
 let inventory = [];
 let salesLog  = [];
 let payLog    = LS.get('payLog', []);
-let payMethods= LS.get('payMethods', defaultPayMethods());
+
+// NOTE: defaultPayMethods must be defined before this line — see below
+let payMethods= null; // initialized after function definitions
 
 if (typeof API_URL === 'undefined') {
-  window.API_URL = new URL('/api', window.location.origin).href;
+  const origin =
+    window.location.origin.startsWith('file:')
+      ? 'http://localhost:3000'
+      : window.location.origin;
+  window.API_URL = `${origin.replace(/\/$/, '')}/api`;
 }
-
+const API_KEY =
+  window.API_KEY ||
+  localStorage.getItem('w_api_key') ||
+  'dev-api-key';
+let AUTH_TOKEN = null;
+const apiFetch = (url, options = {}) => {
+  const headers = { ...(options.headers || {}), 'x-api-key': API_KEY };
+  if (AUTH_TOKEN) headers.authorization = `Bearer ${AUTH_TOKEN}`;
+  return fetch(url, { ...options, headers });
+};
 async function fetchInventory() {
   try {
-    const res = await fetch(`${API_URL}/products`);
+    const res = await apiFetch(`${API_URL}/products`);
     inventory = await res.json();
     renderInventory();
     renderPOSProducts();
@@ -44,7 +54,7 @@ async function fetchInventory() {
 
 async function fetchSalesLog() {
   try {
-    const res = await fetch(`${API_URL}/sales`);
+    const res = await apiFetch(`${API_URL}/sales`);
     const data = await res.json();
     salesLog = data.map(s => ({
       ...s,
@@ -159,38 +169,37 @@ updateClock();
 /* ══════════════════════════════════════════════════════════
    AUTH / LOGIN
 ══════════════════════════════════════════════════════════ */
-function simpleJWT(user) {
-  // Simulated JWT: base64(header).base64(payload).signature
-  const header  = btoa(JSON.stringify({alg:'HS256',typ:'JWT'}));
-  const payload = btoa(JSON.stringify({sub:user.user,role:user.role,iat:Date.now(),exp:Date.now()+86400000}));
-  const sig     = btoa(user.user + 'winner_secret_' + Date.now()).slice(0,20);
-  return `${header}.${payload}.${sig}`;
-}
-
 function verifySession() {
   if (!session) return false;
-  try {
-    const payload = JSON.parse(atob(session.token.split('.')[1]));
-    return payload.exp > Date.now();
-  } catch { return false; }
+  return !!session.token;
 }
 
 function doLogin() {
   const u = $('loginUser').value.trim();
   const p = $('loginPass').value;
-  const user = USERS.find(x => x.user===u && x.pass===p);
-
-  if (!user) {
+  fetch(`${API_URL}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user: u, pass: p })
+  }).then(async res => {
+    if (!res.ok) {
+      const err = $('loginError');
+      err.textContent = '❌ Usuario o contraseña incorrectos';
+      err.style.display = 'block';
+      setTimeout(()=>err.style.display='none', 3000);
+      return;
+    }
+    const data = await res.json();
+    AUTH_TOKEN = data.token;
+    session = { token: data.token, user: data.user, role: data.role || 'Administrador', avatar: (data.user||'')[0]?.toUpperCase() || 'A' };
+    LS.set('session', session);
+    showApp();
+  }).catch(() => {
     const err = $('loginError');
-    err.textContent = '❌ Usuario o contraseña incorrectos';
+    err.textContent = '❌ Error de conexión';
     err.style.display = 'block';
     setTimeout(()=>err.style.display='none', 3000);
-    return;
-  }
-
-  session = { token: simpleJWT(user), user: user.user, role: user.role, avatar: user.avatar };
-  LS.set('session', session);
-  showApp();
+  });
 }
 
 function doLogout() {
@@ -213,6 +222,7 @@ function showApp() {
   $('mainApp').style.display    = 'flex';
   // Set user info
   if (session) {
+    AUTH_TOKEN = session.token;
     $('sidebarUser').querySelector('.su-name').textContent = session.role;
     $('sidebarUser').querySelector('.su-avatar').textContent = session.avatar;
   }
@@ -425,10 +435,12 @@ function renderInventory() {
 async function deleteProduct(id) {
   if (!confirm('¿Eliminar este producto?')) return;
   try {
-    const res = await fetch(`${API_URL}/products/${id}`, { method: 'DELETE' });
+    const res = await apiFetch(`${API_URL}/products/${id}`, { method: 'DELETE' });
     if (res.ok) {
       fetchInventory();
       toast('Producto eliminado');
+    } else {
+      toast('❌ Sin autorización');
     }
   } catch(e) { console.error('Error deleting product:', e); }
 }
@@ -510,7 +522,7 @@ async function saveProduct() {
   };
 
   try {
-    const res = await fetch(`${API_URL}/products`, {
+    const res = await apiFetch(`${API_URL}/products`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(productData)
@@ -863,7 +875,7 @@ async function confirmPOSSale() {
   };
 
   try {
-    await fetch(`${API_URL}/sales`, {
+    await apiFetch(`${API_URL}/sales`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(sale)
@@ -883,7 +895,7 @@ async function confirmPOSSale() {
         rem -= take;
       }
       try {
-        await fetch(`${API_URL}/products`, {
+        await apiFetch(`${API_URL}/products`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...p, category: p.cat, image: p.img })
@@ -1104,10 +1116,12 @@ function renderSalesTable() {
 async function deleteSale(id) {
   if (!confirm('¿Eliminar esta venta del registro?')) return;
   try {
-    const res = await fetch(`${API_URL}/sales/${id}`, { method: 'DELETE' });
+    const res = await apiFetch(`${API_URL}/sales/${id}`, { method: 'DELETE' });
     if (res.ok) {
       fetchSalesLog();
       toast('Venta eliminada');
+    } else {
+      toast('❌ Sin autorización');
     }
   } catch(e) { console.error('Error deleting sale:', e); }
 }
@@ -1139,15 +1153,217 @@ function downloadCSV(rows, filename) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   INIT
+   INIT (después de funciones de datos)
+══════════════════════════════════════════════════════════ */
+// Inicializar payMethods AHORA que defaultPayMethods() ya está definida
+payMethods = LS.get('payMethods', defaultPayMethods());
+
+/* ══════════════════════════════════════════════════════════
+   MOBILE SCANNER LINK (QR para abrir escáner en celular)
+══════════════════════════════════════════════════════════ */
+function openMobileScannerLink() {
+  const url = `${window.location.origin}${window.location.pathname}#qrscan`;
+  const el  = $('mobileScanQR');
+  if (!el) return;
+  el.innerHTML = '';
+  try {
+    new QRCode(el, {
+      text: url,
+      width: 180, height: 180,
+      colorDark: '#000000', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } catch(e) {
+    el.innerHTML = `<p style="word-break:break-all;font-size:12px">${url}</p>`;
+  }
+  $('mobileScanOverlay').classList.add('open');
+  $('mobileScanModal').classList.add('open');
+}
+
+function closeMobileScannerLink() {
+  $('mobileScanOverlay').classList.remove('open');
+  $('mobileScanModal').classList.remove('open');
+}
+
+/* ══════════════════════════════════════════════════════════
+   QR SCANNER DESDE FORMULARIO DE PRODUCTO
+══════════════════════════════════════════════════════════ */
+function openProductQRScanner() {
+  toast('📷 Use el campo SKU para ingresar el código manualmente, o use el Escáner QR del menú.');
+}
+
+/* ══════════════════════════════════════════════════════════
+   TOGGLE PAY SECTION (colapsar/expandir secciones de pago)
+══════════════════════════════════════════════════════════ */
+function togglePaySection(sectionId) {
+  const el = $(sectionId);
+  if (!el) return;
+  const isHidden = el.style.display === 'none';
+  el.style.display = isHidden ? '' : 'none';
+  const label = el.previousElementSibling;
+  if (label) label.classList.toggle('collapsed', !isHidden);
+}
+
+/* ══════════════════════════════════════════════════════════
+   EDITOR DE MÉTODO DE PAGO
+══════════════════════════════════════════════════════════ */
+let _editingPayMethodId   = null;
+let _editingPaySectionKey = null;
+
+function openPayMethodEditor(sectionId, methodId) {
+  const key = PAY_SECTION_MAP[sectionId];
+  if (!key) return;
+  const m = payMethods[key].find(x => x.id === methodId);
+  if (!m) return;
+  _editingPayMethodId   = methodId;
+  _editingPaySectionKey = key;
+  $('payEditName').value    = m.name;
+  $('payEditType').value    = m.type;
+  $('payEditEnabled').checked = m.enabled;
+  $('payMethodModalOverlay').classList.add('open');
+  $('payMethodModal').classList.add('open');
+}
+
+function closePayMethodEditor() {
+  $('payMethodModalOverlay').classList.remove('open');
+  $('payMethodModal').classList.remove('open');
+  _editingPayMethodId   = null;
+  _editingPaySectionKey = null;
+}
+
+function savePayMethodEditor() {
+  if (!_editingPaySectionKey || !_editingPayMethodId) return;
+  const m = payMethods[_editingPaySectionKey].find(x => x.id === _editingPayMethodId);
+  if (!m) return;
+  m.name    = $('payEditName').value.trim() || m.name;
+  m.enabled = $('payEditEnabled').checked;
+  LS.set('payMethods', payMethods);
+  renderPayMethods();
+  renderPOSPayGrid();
+  closePayMethodEditor();
+  toast('Método de pago actualizado');
+}
+
+/* ══════════════════════════════════════════════════════════
+   MODAL POS PAYMENT
+══════════════════════════════════════════════════════════ */
+function openPOSPaymentModal() {
+  if (!posCart.length) { toast('⚠ Agrega productos a la venta'); return; }
+  const allMethods = [
+    ...payMethods.national.filter(m => m.enabled),
+    ...payMethods.wallets.filter(m => m.enabled),
+    ...payMethods.delivery.filter(m => m.enabled),
+    ...payMethods.intl.filter(m => m.enabled),
+  ];
+  const opts = $('posPayOptions');
+  opts.innerHTML = allMethods.map(m => `
+    <button class="pos-pay-option-btn ${posSelectedMethod===m.name?'selected':''}"
+      onclick="selectAndConfirmPOS('${m.name}')">
+      <span style="font-size:20px">${m.icon}</span>
+      <span>${m.name}</span>
+      <span style="font-size:10px;color:var(--gray-text)">${m.type}</span>
+    </button>`).join('');
+  $('posPayOverlay').classList.add('open');
+  $('posPayModal').classList.add('open');
+}
+
+function closePOSPaymentModal() {
+  $('posPayOverlay').classList.remove('open');
+  $('posPayModal').classList.remove('open');
+}
+
+function selectAndConfirmPOS(method) {
+  posSelectedMethod = method;
+  closePOSPaymentModal();
+  confirmPOSSale();
+}
+
+/* ══════════════════════════════════════════════════════════
+   STOCK CSV UPLOAD
+══════════════════════════════════════════════════════════ */
+function triggerStockUpload() {
+  const inp = $('invCsvInput');
+  if (inp) inp.click();
+}
+
+async function handleStockUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const text = await file.text();
+  const lines = text.split('\n').filter(l => l.trim());
+  if (!lines.length) { toast('Archivo vacío'); return; }
+
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g,''));
+  const getCol  = (h) => {
+    if (['id','codigo','código','sku'].includes(h)) return 'sku';
+    if (['name','nombre','producto'].includes(h))   return 'name';
+    if (['qty','cantidad','stock','cantidad'].includes(h)) return 'qty';
+    if (['size','talla','talla/size'].includes(h))  return 'size';
+    return h;
+  };
+  const mapped = headers.map(getCol);
+
+  let updated = 0;
+  for (let i = 1; i < lines.length; i++) {
+    const cols  = lines[i].split(',').map(c => c.trim().replace(/^["']|["']$/g,''));
+    const row   = {};
+    mapped.forEach((k,j) => { row[k] = cols[j] || ''; });
+
+    const skuVal  = row.sku  || row.name || '';
+    const sizeVal = (row.size || 'M').toUpperCase();
+    const qtyVal  = parseInt(row.qty) || 0;
+
+    const p = inventory.find(x =>
+      x.sku === skuVal ||
+      x.name.toLowerCase() === skuVal.toLowerCase() ||
+      String(x.id) === skuVal
+    );
+    if (p && SIZES.includes(sizeVal)) {
+      p.stock[sizeVal] = qtyVal;
+      // Sync to backend
+      try {
+        await apiFetch(`${API_URL}/products`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...p, category: p.cat, image: p.img })
+        });
+        updated++;
+      } catch(e) { console.error('Stock sync error:', e); }
+    }
+  }
+
+  event.target.value = '';
+  fetchInventory();
+  toast(`✓ Stock actualizado: ${updated} producto(s)`);
+}
+
+/* ══════════════════════════════════════════════════════════
+   DOM READY — listeners finales
 ══════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
-  // Stock input listeners for modal
+  // KPI cards → navegación
+  const kpiSales = $('kpiCardSales');
+  if (kpiSales) kpiSales.addEventListener('click', () => navigateTo('sales'));
+  const kpiProds = $('kpiCardProducts');
+  if (kpiProds) kpiProds.addEventListener('click', () => navigateTo('inventory'));
+  const kpiLow   = $('kpiCardLowStock');
+  if (kpiLow)   kpiLow.addEventListener('click', () => navigateTo('inventory'));
+
+  // Stock inputs en modal
   SIZES.forEach(s => {
     const el = $('ps-'+s);
     if (el) el.addEventListener('input', updateStockTotal);
   });
+
   // POS discount live update
   const pd = $('posDiscount');
   if (pd) pd.addEventListener('input', updatePOSTotals);
+
+  // Hash navigation (ej: #qrscan desde móvil)
+  const hash = window.location.hash.replace('#', '');
+  const validPages = ['dashboard','inventory','pos','payments','sales','qrscan'];
+  if (hash && validPages.includes(hash) && verifySession()) {
+    navigateTo(hash);
+  }
 });
