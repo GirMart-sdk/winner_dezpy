@@ -8,6 +8,14 @@ const API_URL =
     ? "http://localhost:3000/api"
     : new URL("/api", window.location.origin).href;
 window.API_URL = API_URL;
+const API_KEY = window.API_KEY || "dev-api-key";
+const API_HEADERS = { "x-api-key": API_KEY };
+
+const apiFetch = (url, options = {}) =>
+  fetch(url, {
+    ...options,
+    headers: { ...(options.headers || {}), ...API_HEADERS },
+  });
 
 /* ── HELPERS ─────────────────────────────────────────── */
 const esc = (str) => {
@@ -32,7 +40,7 @@ let activeFilter = "all";
 
 async function fetchProducts() {
   try {
-    const res = await fetch(`${API_URL}/products`);
+    const res = await apiFetch(`${API_URL}/products`);
     PRODUCTS = await res.json();
     renderProducts(activeFilter);
   } catch (err) {
@@ -54,7 +62,7 @@ async function registerOnlineSale(method) {
   };
 
   try {
-    const res = await fetch(`${API_URL}/sales`, {
+    const res = await apiFetch(`${API_URL}/sales`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(saleData),

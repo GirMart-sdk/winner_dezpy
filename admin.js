@@ -10,6 +10,10 @@ if (typeof API_URL === "undefined") {
       ? "http://localhost:3000/api"
       : new URL("/api", window.location.origin).href;
 }
+const API_KEY = window.API_KEY || "dev-api-key";
+const API_HEADERS = { "x-api-key": API_KEY };
+const apiFetch = (url, options = {}) =>
+  fetch(url, { ...options, headers: { ...(options.headers || {}), ...API_HEADERS } });
 
 /* ── CURRENCY FORMAT ──────────────────────────────────── */
 function admFmt(n) {
@@ -48,7 +52,7 @@ let admSales = [];
 
 async function fetchInventory() {
   try {
-    const res = await fetch(`${API_URL}/products`);
+    const res = await apiFetch(`${API_URL}/products`);
     admInventory = await res.json();
     renderAdminInventory();
   } catch (e) {
@@ -58,7 +62,7 @@ async function fetchInventory() {
 
 async function fetchSales() {
   try {
-    const res = await fetch(`${API_URL}/sales`);
+    const res = await apiFetch(`${API_URL}/sales`);
     admSales = await res.json();
     renderSalesStats();
     renderAdminSalesTable();
@@ -449,7 +453,7 @@ async function saveProduct() {
   };
 
   try {
-    const res = await fetch(`${API_URL}/products`, {
+    const res = await apiFetch(`${API_URL}/products`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(productData),
@@ -471,7 +475,7 @@ async function saveProduct() {
 async function deleteProduct(id) {
   if (!confirm("¿Eliminar este producto del inventario?")) return;
   try {
-    const res = await fetch(`${API_URL}/products/${id}`, { method: "DELETE" });
+    const res = await apiFetch(`${API_URL}/products/${id}`, { method: "DELETE" });
     if (res.ok) {
       fetchInventory();
       showAdminToast("Producto eliminado");
@@ -552,7 +556,7 @@ async function registerSaleAdmin() {
   };
 
   try {
-    const res = await fetch(`${API_URL}/sales`, {
+    const res = await apiFetch(`${API_URL}/sales`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(sale),
@@ -624,7 +628,7 @@ function renderAdminSalesTable() {
 async function deleteSaleAdmin(id) {
   if (!confirm("¿Eliminar esta venta del registro?")) return;
   try {
-    const res = await fetch(`${API_URL}/sales/${id}`, { method: "DELETE" });
+    const res = await apiFetch(`${API_URL}/sales/${id}`, { method: "DELETE" });
     if (res.ok) {
       fetchSales();
       showAdminToast("Venta eliminada");

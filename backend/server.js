@@ -2,6 +2,8 @@ const express = require("express");
 const path = require("path");
 const cors = require("cors");
 const bodyParser = require("body-parser");
+const jwt = require("jsonwebtoken");
+const { scryptSync, timingSafeEqual } = require("crypto");
 const { URL } = require("url");
 require("dotenv").config();
 const db = require("./database");
@@ -9,12 +11,78 @@ const db = require("./database");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+const API_KEY = process.env.API_KEY || "dev-api-key";
+const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret";
+const ADMIN_USER = process.env.ADMIN_USER || "admin";
+const ADMIN_PLAIN = process.env.ADMIN_PASSWORD;
+const ADMIN_SALT = process.env.ADMIN_SALT || "winner_salt";
+const ADMIN_PASSWORD_HASH =
+  process.env.ADMIN_PASSWORD_HASH ||
+  scryptSync("winner2026", ADMIN_SALT, 64).toString("hex");
+
+function passwordMatches(pass) {
+  if (ADMIN_PLAIN && pass === ADMIN_PLAIN) return true;
+  const hash = scryptSync(pass, ADMIN_SALT, 64).toString("hex");
+  const a = Buffer.from(hash, "hex");
+  const b = Buffer.from(ADMIN_PASSWORD_HASH, "hex");
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true); // Allow tools/curl
+      if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("Not allowed by CORS"));
+    },
+    methods: ["GET", "POST", "DELETE"],
+  }),
+);
 app.use(bodyParser.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ limit: "10mb", extended: true }));
 
 const CLIENT_ROOT = path.join(__dirname, "..");
+app.use((req, res, next) => {
+  const sensitive = [".db", ".sqlite", ".env", "seed.js", "database.js"];
+  if (sensitive.some((s) => req.path.endsWith(s))) {
+    return res.status(403).send("Forbidden");
+  }
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "no-referrer-when-downgrade");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=()");
+  next();
+});
 app.use(express.static(CLIENT_ROOT));
+
+function requireApiKey(req, res, next) {
+  const key = req.header("x-api-key");
+  if (key && key === API_KEY) return next();
+  return res.status(401).json({ error: "API key required" });
+}
+
+function requireAuth(req, res, next) {
+  const auth = req.header("authorization") || "";
+  if (auth.startsWith("Bearer ")) {
+    try {
+      const token = auth.slice(7);
+      const payload = jwt.verify(token, JWT_SECRET);
+      req.user = payload;
+      return next();
+    } catch (err) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+  }
+  // Fallback to API key for storefront compatibility
+  return requireApiKey(req, res, next);
+}
 
 const PRODUCT_METADATA = {
   P001: {
@@ -346,8 +414,20 @@ app.get("/merchant-feed.csv", (req, res) => {
   });
 });
 
+// Auth: simple login returning JWT
+app.post("/api/login", (req, res) => {
+  const { user, pass } = req.body || {};
+  if (user === ADMIN_USER && pass && passwordMatches(pass)) {
+    const token = jwt.sign({ sub: user, role: "admin" }, JWT_SECRET, {
+      expiresIn: "1d",
+    });
+    return res.json({ token, user, role: "admin" });
+  }
+  return res.status(401).json({ error: "Credenciales inválidas" });
+});
+
 // Create or Update Product
-app.post("/api/products", (req, res) => {
+app.post("/api/products", requireAuth, (req, res) => {
   const {
     id,
     name,
@@ -398,7 +478,7 @@ app.post("/api/products", (req, res) => {
 });
 
 // Delete product
-app.delete("/api/products/:id", (req, res) => {
+app.delete("/api/products/:id", requireAuth, (req, res) => {
   db.run(`DELETE FROM products WHERE id = ?`, req.params.id, (err) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
@@ -426,8 +506,8 @@ app.get("/api/sales", (req, res) => {
   });
 });
 
-// Register Sale
-app.post("/api/sales", (req, res) => {
+// Register Sale (auth or API key)
+app.post("/api/sales", requireAuth, (req, res) => {
   const { id, timestamp, vendor, client, method, total, items } = req.body;
 
   db.serialize(() => {
@@ -452,7 +532,7 @@ app.post("/api/sales", (req, res) => {
   });
 });
 
-app.delete("/api/sales/:id", (req, res) => {
+app.delete("/api/sales/:id", requireAuth, (req, res) => {
   db.run(`DELETE FROM sales WHERE id = ?`, req.params.id, (err) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });

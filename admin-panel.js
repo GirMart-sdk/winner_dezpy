@@ -8,11 +8,6 @@
 /* ══════════════════════════════════════════════════════════
    CONFIG
 ══════════════════════════════════════════════════════════ */
-const USERS = [
-  { user: 'admin',   pass: 'winner2026', role: 'Administrador', avatar: 'A' },
-  { user: 'vendedor',pass: 'venta123',   role: 'Vendedor',      avatar: 'V' },
-];
-
 const SIZES = ['XS','S','M','L','XL','XXL'];
 
 /* ══════════════════════════════════════════════════════════
@@ -30,12 +25,25 @@ let payLog    = LS.get('payLog', []);
 let payMethods= LS.get('payMethods', defaultPayMethods());
 
 if (typeof API_URL === 'undefined') {
-  window.API_URL = new URL('/api', window.location.origin).href;
+  const origin =
+    window.location.origin.startsWith('file:')
+      ? 'http://localhost:3000'
+      : window.location.origin;
+  window.API_URL = `${origin.replace(/\/$/, '')}/api`;
 }
-
+const API_KEY =
+  window.API_KEY ||
+  localStorage.getItem('w_api_key') ||
+  'dev-api-key';
+let AUTH_TOKEN = null;
+const apiFetch = (url, options = {}) => {
+  const headers = { ...(options.headers || {}), 'x-api-key': API_KEY };
+  if (AUTH_TOKEN) headers.authorization = `Bearer ${AUTH_TOKEN}`;
+  return fetch(url, { ...options, headers });
+};
 async function fetchInventory() {
   try {
-    const res = await fetch(`${API_URL}/products`);
+    const res = await apiFetch(`${API_URL}/products`);
     inventory = await res.json();
     renderInventory();
     renderPOSProducts();
@@ -44,7 +52,7 @@ async function fetchInventory() {
 
 async function fetchSalesLog() {
   try {
-    const res = await fetch(`${API_URL}/sales`);
+    const res = await apiFetch(`${API_URL}/sales`);
     const data = await res.json();
     salesLog = data.map(s => ({
       ...s,
@@ -159,38 +167,37 @@ updateClock();
 /* ══════════════════════════════════════════════════════════
    AUTH / LOGIN
 ══════════════════════════════════════════════════════════ */
-function simpleJWT(user) {
-  // Simulated JWT: base64(header).base64(payload).signature
-  const header  = btoa(JSON.stringify({alg:'HS256',typ:'JWT'}));
-  const payload = btoa(JSON.stringify({sub:user.user,role:user.role,iat:Date.now(),exp:Date.now()+86400000}));
-  const sig     = btoa(user.user + 'winner_secret_' + Date.now()).slice(0,20);
-  return `${header}.${payload}.${sig}`;
-}
-
 function verifySession() {
   if (!session) return false;
-  try {
-    const payload = JSON.parse(atob(session.token.split('.')[1]));
-    return payload.exp > Date.now();
-  } catch { return false; }
+  return !!session.token;
 }
 
 function doLogin() {
   const u = $('loginUser').value.trim();
   const p = $('loginPass').value;
-  const user = USERS.find(x => x.user===u && x.pass===p);
-
-  if (!user) {
+  fetch(`${API_URL}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user: u, pass: p })
+  }).then(async res => {
+    if (!res.ok) {
+      const err = $('loginError');
+      err.textContent = '❌ Usuario o contraseña incorrectos';
+      err.style.display = 'block';
+      setTimeout(()=>err.style.display='none', 3000);
+      return;
+    }
+    const data = await res.json();
+    AUTH_TOKEN = data.token;
+    session = { token: data.token, user: data.user, role: data.role || 'Administrador', avatar: (data.user||'')[0]?.toUpperCase() || 'A' };
+    LS.set('session', session);
+    showApp();
+  }).catch(() => {
     const err = $('loginError');
-    err.textContent = '❌ Usuario o contraseña incorrectos';
+    err.textContent = '❌ Error de conexión';
     err.style.display = 'block';
     setTimeout(()=>err.style.display='none', 3000);
-    return;
-  }
-
-  session = { token: simpleJWT(user), user: user.user, role: user.role, avatar: user.avatar };
-  LS.set('session', session);
-  showApp();
+  });
 }
 
 function doLogout() {
@@ -213,6 +220,7 @@ function showApp() {
   $('mainApp').style.display    = 'flex';
   // Set user info
   if (session) {
+    AUTH_TOKEN = session.token;
     $('sidebarUser').querySelector('.su-name').textContent = session.role;
     $('sidebarUser').querySelector('.su-avatar').textContent = session.avatar;
   }
@@ -425,10 +433,12 @@ function renderInventory() {
 async function deleteProduct(id) {
   if (!confirm('¿Eliminar este producto?')) return;
   try {
-    const res = await fetch(`${API_URL}/products/${id}`, { method: 'DELETE' });
+    const res = await apiFetch(`${API_URL}/products/${id}`, { method: 'DELETE' });
     if (res.ok) {
       fetchInventory();
       toast('Producto eliminado');
+    } else {
+      toast('❌ Sin autorización');
     }
   } catch(e) { console.error('Error deleting product:', e); }
 }
@@ -510,7 +520,7 @@ async function saveProduct() {
   };
 
   try {
-    const res = await fetch(`${API_URL}/products`, {
+    const res = await apiFetch(`${API_URL}/products`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(productData)
@@ -863,7 +873,7 @@ async function confirmPOSSale() {
   };
 
   try {
-    await fetch(`${API_URL}/sales`, {
+    await apiFetch(`${API_URL}/sales`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(sale)
@@ -883,7 +893,7 @@ async function confirmPOSSale() {
         rem -= take;
       }
       try {
-        await fetch(`${API_URL}/products`, {
+        await apiFetch(`${API_URL}/products`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...p, category: p.cat, image: p.img })
@@ -1104,10 +1114,12 @@ function renderSalesTable() {
 async function deleteSale(id) {
   if (!confirm('¿Eliminar esta venta del registro?')) return;
   try {
-    const res = await fetch(`${API_URL}/sales/${id}`, { method: 'DELETE' });
+    const res = await apiFetch(`${API_URL}/sales/${id}`, { method: 'DELETE' });
     if (res.ok) {
       fetchSalesLog();
       toast('Venta eliminada');
+    } else {
+      toast('❌ Sin autorización');
     }
   } catch(e) { console.error('Error deleting sale:', e); }
 }

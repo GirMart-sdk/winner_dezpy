@@ -9,6 +9,7 @@ Plataforma de E-commerce con Análisis de Ventas y Gestión de Inventarios.
 - **Análisis de Ventas**: Visualización de datos en tiempo real con Chart.js (Ventas diarias, canales y métodos de pago).
 - **Backend Robusto**: Servidor Node.js con base de datos SQLite persistente.
 - **Merchant Ready**: JSON-LD para cada producto y un feed CSV disponible en `/merchant-feed.csv` para sincronizar con Google Merchant Center.
+- **Seguridad**: API protegida con JWT para el panel (POST/DELETE) y clave `x-api-key` para la tienda online; orígenes CORS configurables vía entorno.
 
 ## 🛠️ Instalación y Configuración
 
@@ -44,3 +45,9 @@ Plataforma de E-commerce con Análisis de Ventas y Gestión de Inventarios.
 
 - Cada renderizado de productos inyecta JSON-LD (ItemList + Product/Offer) enriquecido con metadata (GTIN, MPN, color, tallas, material y shipping_weight) para que Google pueda comprobar las ofertas frente a la misma página.
 - El endpoint público `GET /merchant-feed.csv` devuelve un CSV completo con los atributos extraídos (id, title, description, link, image_link, additional_image_link, availability, price, sale_price, sale_price_effective_date, brand, gtin, mpn, condition, google_product_category, product_type, gender, age_group, color, size, material, pattern, shipping_weight, item_group_id, identifier_exists, tax, shipping, custom_label_0 y custom_label_1) y se construye con datos actuales de inventario para evitar discrepancias y dar mayor confianza al catálogo.
+
+## 🔐 Variables de entorno relevantes
+- `API_KEY`: clave compartida para la tienda (x-api-key).
+- `JWT_SECRET`: clave para firmar tokens del panel.
+- `ADMIN_USER`, `ADMIN_SALT`, `ADMIN_PASSWORD_HASH`: credenciales del panel (hash derivado con scrypt; por defecto usuario `admin`, pass `winner2026`).
+- `ALLOWED_ORIGINS`: lista separada por comas para CORS (ej. `https://midominio.com,https://admin.midominio.com`).
