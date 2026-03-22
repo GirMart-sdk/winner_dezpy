@@ -15,6 +15,14 @@ const API_URL = (() => {
   return `${origin.replace(/\/$/, "")}/api`;
 })();
 window.API_URL = API_URL;
+const API_KEY = window.API_KEY || "dev-api-key";
+const API_HEADERS = { "x-api-key": API_KEY };
+
+const apiFetch = (url, options = {}) =>
+  fetch(url, {
+    ...options,
+    headers: { ...(options.headers || {}), ...API_HEADERS },
+  });
 
 // API key puede venir inyectada o caer al valor de desarrollo.
 const API_KEY =

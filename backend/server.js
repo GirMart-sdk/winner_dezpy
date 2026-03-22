@@ -1,9 +1,21 @@
+<<<<<<< HEAD
 /* ═══════════════════════════════════════════════════════════
    WINNER STORE — server.js  v2.0
    Backend completo: Productos · Inventario · Ventas · Auth
    Merchant Feed CSV · Estadísticas · Seguridad JWT + API Key
    ═══════════════════════════════════════════════════════════ */
 'use strict';
+=======
+const express = require("express");
+const path = require("path");
+const cors = require("cors");
+const bodyParser = require("body-parser");
+const jwt = require("jsonwebtoken");
+const { scryptSync, timingSafeEqual } = require("crypto");
+const { URL } = require("url");
+require("dotenv").config();
+const db = require("./database");
+>>>>>>> 108315b9b7d290994e2f545c827cc63f0da3817f
 
 const express    = require('express');
 const path       = require('path');
@@ -19,6 +31,7 @@ const db = require('./database');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+<<<<<<< HEAD
 /* ── Configuración de seguridad ──────────────────────────── */
 const API_KEY     = process.env.API_KEY     || 'dev-api-key';
 const JWT_SECRET  = process.env.JWT_SECRET  || 'dev-jwt-secret-winner-2026';
@@ -38,6 +51,233 @@ function passwordMatches(pass) {
     if (a.length !== b.length) return false;
     return timingSafeEqual(a, b);
   } catch { return false; }
+=======
+const API_KEY = process.env.API_KEY || "dev-api-key";
+const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret";
+const ADMIN_USER = process.env.ADMIN_USER || "admin";
+const ADMIN_PLAIN = process.env.ADMIN_PASSWORD;
+const ADMIN_SALT = process.env.ADMIN_SALT || "winner_salt";
+const ADMIN_PASSWORD_HASH =
+  process.env.ADMIN_PASSWORD_HASH ||
+  scryptSync("winner2026", ADMIN_SALT, 64).toString("hex");
+
+function passwordMatches(pass) {
+  if (ADMIN_PLAIN && pass === ADMIN_PLAIN) return true;
+  const hash = scryptSync(pass, ADMIN_SALT, 64).toString("hex");
+  const a = Buffer.from(hash, "hex");
+  const b = Buffer.from(ADMIN_PASSWORD_HASH, "hex");
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true); // Allow tools/curl
+      if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("Not allowed by CORS"));
+    },
+    methods: ["GET", "POST", "DELETE"],
+  }),
+);
+app.use(bodyParser.json({ limit: "10mb" }));
+app.use(bodyParser.urlencoded({ limit: "10mb", extended: true }));
+
+const CLIENT_ROOT = path.join(__dirname, "..");
+app.use((req, res, next) => {
+  const sensitive = [".db", ".sqlite", ".env", "seed.js", "database.js"];
+  if (sensitive.some((s) => req.path.endsWith(s))) {
+    return res.status(403).send("Forbidden");
+  }
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "no-referrer-when-downgrade");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=()");
+  next();
+});
+app.use(express.static(CLIENT_ROOT));
+
+function requireApiKey(req, res, next) {
+  const key = req.header("x-api-key");
+  if (key && key === API_KEY) return next();
+  return res.status(401).json({ error: "API key required" });
+}
+
+function requireAuth(req, res, next) {
+  const auth = req.header("authorization") || "";
+  if (auth.startsWith("Bearer ")) {
+    try {
+      const token = auth.slice(7);
+      const payload = jwt.verify(token, JWT_SECRET);
+      req.user = payload;
+      return next();
+    } catch (err) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+  }
+  // Fallback to API key for storefront compatibility
+  return requireApiKey(req, res, next);
+}
+
+const PRODUCT_METADATA = {
+  P001: {
+    googleCategory: "Apparel & Accessories > Clothing > Outerwear > Hoodies & Sweatshirts",
+    productType: "Streetwear > Hoodie Crop Urbana",
+    mpn: "WIN-P001",
+    gtin: "7700000000012",
+    gender: "female",
+    ageGroup: "adult",
+    color: "Negro grafito",
+    size: "XS,S,M,L,XL,XXL",
+    material: "Algodón peinado",
+    pattern: "Liso",
+    shippingWeight: "0.65 kg",
+    additionalImages: [
+      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=900&q=80",
+      "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=900&q=80",
+    ],
+    customLabel0: "Oferta",
+    customLabel1: "Hoodies",
+  },
+  P002: {
+    googleCategory: "Apparel & Accessories > Clothing > Pants",
+    productType: "Streetwear > Jogger Cargo Pro",
+    mpn: "WIN-P002",
+    gtin: "7700000000013",
+    gender: "male",
+    ageGroup: "adult",
+    color: "Caqui militar",
+    size: "XS,S,M,L,XL,XXL",
+    material: "Gabardina stretch",
+    pattern: "Liso",
+    shippingWeight: "0.58 kg",
+    additionalImages: [
+      "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=900&q=80",
+    ],
+    customLabel0: "Oferta",
+    customLabel1: "Joggers",
+  },
+  P003: {
+    googleCategory: "Apparel & Accessories > Clothing > Outerwear > Jackets",
+    productType: "Streetwear > Bomber Reflex",
+    mpn: "WIN-P003",
+    gtin: "7700000000014",
+    gender: "male",
+    ageGroup: "adult",
+    color: "Negro metálico",
+    size: "S,M,L,XL",
+    material: "Nylon técnico",
+    pattern: "Reflectivo",
+    shippingWeight: "0.72 kg",
+    additionalImages: [
+      "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=900&q=80",
+    ],
+    customLabel0: "Novedad",
+    customLabel1: "Bomber",
+  },
+  P004: {
+    googleCategory: "Apparel & Accessories > Clothing > Dresses",
+    productType: "Streetwear > Mini Dress Urban",
+    mpn: "WIN-P004",
+    gtin: "7700000000015",
+    gender: "female",
+    ageGroup: "adult",
+    color: "Blanco hueso",
+    size: "XS,S,M,L,XL",
+    material: "Satín stretch",
+    pattern: "Texturizado",
+    shippingWeight: "0.52 kg",
+    additionalImages: [
+      "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=900&q=80",
+      "https://images.unsplash.com/photo-1503342452485-86c63da3ad42?w=900&q=80",
+    ],
+    customLabel0: "Oferta",
+    customLabel1: "Vestidos",
+  },
+  P005: {
+    googleCategory: "Apparel & Accessories > Clothing Accessories > Hats",
+    productType: "Streetwear > Bucket Hat Logo",
+    mpn: "WIN-P005",
+    gtin: "7700000000016",
+    gender: "unisex",
+    ageGroup: "adult",
+    color: "Beige arena",
+    size: "U",
+    material: "Lona liviana",
+    pattern: "Liso",
+    shippingWeight: "0.20 kg",
+    additionalImages: [
+      "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=900&q=80",
+    ],
+    customLabel0: "Accesorios",
+    customLabel1: "Sombreros",
+  },
+  P006: {
+    googleCategory:
+      "Apparel & Accessories > Clothing > Shirts & Tops > T-shirts",
+    productType: "Streetwear > Oversize Tee W",
+    mpn: "WIN-P006",
+    gtin: "7700000000017",
+    gender: "male",
+    ageGroup: "adult",
+    color: "Blanco puro",
+    size: "XS,S,M,L,XL,XXL",
+    material: "Algodón orgánico",
+    pattern: "Grafiti",
+    shippingWeight: "0.35 kg",
+    additionalImages: [
+      "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=900&q=80",
+    ],
+    customLabel0: "Básicos",
+    customLabel1: "Camisetas",
+  },
+  P007: {
+    googleCategory: "Apparel & Accessories > Clothing > Activewear",
+    productType: "Streetwear > Set Deportivo W",
+    mpn: "WIN-P007",
+    gtin: "7700000000018",
+    gender: "female",
+    ageGroup: "adult",
+    color: "Negro/rojo",
+    size: "XS,S,M,L,XL",
+    material: "Licra compresiva",
+    pattern: "Bicolor",
+    shippingWeight: "0.70 kg",
+    additionalImages: [
+      "https://images.unsplash.com/photo-1548690312-e3b507d8c110?w=900&q=80",
+    ],
+    customLabel0: "Oferta",
+    customLabel1: "Conjuntos",
+  },
+  P008: {
+    googleCategory: "Apparel & Accessories > Bags > Backpacks",
+    productType: "Streetwear > Mochila Táctica",
+    mpn: "WIN-P008",
+    gtin: "7700000000019",
+    gender: "unisex",
+    ageGroup: "adult",
+    color: "Negro carbón",
+    size: "U",
+    material: "Poliéster técnico",
+    pattern: "Geométrico",
+    shippingWeight: "0.95 kg",
+    additionalImages: [
+      "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=900&q=80",
+    ],
+    customLabel0: "Gear",
+    customLabel1: "Mochilas",
+  },
+};
+
+function getProductMetadata(productId) {
+  return PRODUCT_METADATA[productId] || {};
+>>>>>>> 108315b9b7d290994e2f545c827cc63f0da3817f
 }
 
 /* ── CORS ───────────────────────────────────────────────── */
@@ -182,6 +422,7 @@ app.get('/api/products', requireApiKey, (req, res) => {
   });
 });
 
+<<<<<<< HEAD
 // GET /api/products/:id — un producto
 app.get('/api/products/:id', requireApiKey, (req, res) => {
   db.get(PRODUCTS_QUERY + ' WHERE p.id = ?', [req.params.id], (err, row) => {
@@ -193,6 +434,22 @@ app.get('/api/products/:id', requireApiKey, (req, res) => {
 
 // POST /api/products — crear o actualizar producto
 app.post('/api/products', requireAuth, (req, res) => {
+=======
+// Auth: simple login returning JWT
+app.post("/api/login", (req, res) => {
+  const { user, pass } = req.body || {};
+  if (user === ADMIN_USER && pass && passwordMatches(pass)) {
+    const token = jwt.sign({ sub: user, role: "admin" }, JWT_SECRET, {
+      expiresIn: "1d",
+    });
+    return res.json({ token, user, role: "admin" });
+  }
+  return res.status(401).json({ error: "Credenciales inválidas" });
+});
+
+// Create or Update Product
+app.post("/api/products", requireAuth, (req, res) => {
+>>>>>>> 108315b9b7d290994e2f545c827cc63f0da3817f
   const {
     id, name, price, oldPrice, cost,
     category, image, badge, badgeType, sku, description, stock
@@ -200,7 +457,58 @@ app.post('/api/products', requireAuth, (req, res) => {
 
   if (!name || !price) return res.status(400).json({ error: 'name y price son requeridos' });
 
+<<<<<<< HEAD
   const productId = id || ('P' + Date.now().toString(36).toUpperCase());
+=======
+        // Update stock
+        if (stock) {
+          const stmt =
+            db.prepare(`INSERT INTO inventory (product_id, size, qty) VALUES (?, ?, ?)
+                                  ON CONFLICT(product_id, size) DO UPDATE SET qty=excluded.qty`);
+          Object.keys(stock).forEach((size) => {
+            stmt.run(id, size, stock[size]);
+          });
+          stmt.finalize();
+        }
+        res.json({ success: true, id: id });
+      },
+    );
+  });
+});
+
+// Delete product
+app.delete("/api/products/:id", requireAuth, (req, res) => {
+  db.run(`DELETE FROM products WHERE id = ?`, req.params.id, (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
+// ─── SALES ─────────────────────────────────────────────────────────
+
+// Get all sales
+app.get("/api/sales", (req, res) => {
+  const sql = `
+    SELECT s.*, 
+    (SELECT json_group_array(json_object('name', product_name, 'qty', qty, 'price', price)) 
+     FROM sale_items WHERE sale_id = s.id) as items
+    FROM sales s
+    ORDER BY timestamp DESC
+  `;
+  db.all(sql, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const sales = rows.map((row) => ({
+      ...row,
+      items: JSON.parse(row.items || "[]"),
+    }));
+    res.json(sales);
+  });
+});
+
+// Register Sale (auth or API key)
+app.post("/api/sales", requireAuth, (req, res) => {
+  const { id, timestamp, vendor, client, method, total, items } = req.body;
+>>>>>>> 108315b9b7d290994e2f545c827cc63f0da3817f
 
   db.serialize(() => {
     db.run(`
@@ -244,6 +552,7 @@ app.post('/api/products', requireAuth, (req, res) => {
   });
 });
 
+<<<<<<< HEAD
 // PUT /api/products/:id/stock — actualizar solo el stock
 app.put('/api/products/:id/stock', requireAuth, (req, res) => {
   const { stock } = req.body;
@@ -255,6 +564,10 @@ app.put('/api/products/:id/stock', requireAuth, (req, res) => {
   `);
   Object.entries(stock).forEach(([size, qty]) => stmt.run(req.params.id, size, Number(qty) || 0));
   stmt.finalize((err) => {
+=======
+app.delete("/api/sales/:id", requireAuth, (req, res) => {
+  db.run(`DELETE FROM sales WHERE id = ?`, req.params.id, (err) => {
+>>>>>>> 108315b9b7d290994e2f545c827cc63f0da3817f
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });
