@@ -12,11 +12,17 @@ if (typeof API_URL === "undefined" || !API_URL) {
 } else {
   window.API_URL = API_URL.replace(/\/$/, "");
 }
-const API_KEY =
-  window.API_KEY || localStorage.getItem("w_api_key") || "dev-api-key";
-const API_HEADERS = { "x-api-key": API_KEY };
-const apiFetch = (url, options = {}) =>
-  fetch(url, { ...options, headers: { ...(options.headers || {}), ...API_HEADERS } });
+// API_KEY ya está definida globalmente en admin-panel.js
+if (typeof window.API_KEY === 'undefined') {
+  window.API_KEY = localStorage.getItem("w_api_key") || "dev-api-key";
+}
+// Reutilizar apiFetch del contexto global si existe, sino crear uno local
+if (typeof window.apiFetch === 'undefined') {
+  window.apiFetch = (url, options = {}) => {
+    const headers = { ...(options.headers || {}), 'x-api-key': window.API_KEY };
+    return fetch(url, { ...options, headers });
+  };
+}
 
 /* ── CURRENCY FORMAT ──────────────────────────────────── */
 function admFmt(n) {

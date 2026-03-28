@@ -37,10 +37,9 @@ const API_KEY =
   window.API_KEY ||
   localStorage.getItem('w_api_key') ||
   'dev-api-key';
-let AUTH_TOKEN = null;
 const apiFetch = (url, options = {}) => {
   const headers = { ...(options.headers || {}), 'x-api-key': API_KEY };
-  if (AUTH_TOKEN) headers.authorization = `Bearer ${AUTH_TOKEN}`;
+  // Ya no necesitamos token JWT - usamos API_KEY
   return fetch(url, { ...options, headers });
 };
 async function fetchInventory() {
@@ -56,6 +55,14 @@ async function fetchSalesLog() {
   try {
     const res = await apiFetch(`${API_URL}/sales`);
     const data = await res.json();
+    
+    // Asegurar que data es un array
+    if (!Array.isArray(data)) {
+      console.error('⚠️ Respuesta de sales no es un array:', data);
+      salesLog = [];
+      return;
+    }
+    
     salesLog = data.map(s => ({
       ...s,
       ts: s.timestamp,
@@ -171,12 +178,22 @@ updateClock();
 ══════════════════════════════════════════════════════════ */
 function verifySession() {
   if (!session) return false;
-  return !!session.token;
+  return !!session.user;
 }
 
 function doLogin() {
-  const u = $('loginUser').value.trim();
+  const u = $('loginUser').value.trim() || 'Administrador';
   const p = $('loginPass').value;
+  
+  // Si no ingresa contraseña, usar API_KEY directo
+  if (!p) {
+    session = { user: u, role: 'Admin', avatar: (u||'')[0]?.toUpperCase() || 'A' };
+    LS.set('session', session);
+    showApp();
+    return;
+  }
+  
+  // Si pone contraseña, validar en servidor
   fetch(`${API_URL}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -184,21 +201,20 @@ function doLogin() {
   }).then(async res => {
     if (!res.ok) {
       const err = $('loginError');
-      err.textContent = '❌ Usuario o contraseña incorrectos';
+      err.textContent = '❌ Credenciales incorrectas o sin Internet';
       err.style.display = 'block';
       setTimeout(()=>err.style.display='none', 3000);
       return;
     }
     const data = await res.json();
-    AUTH_TOKEN = data.token;
-    session = { token: data.token, user: data.user, role: data.role || 'Administrador', avatar: (data.user||'')[0]?.toUpperCase() || 'A' };
+    session = { user: data.user, role: data.role || 'Administrador', avatar: (data.user||'')[0]?.toUpperCase() || 'A' };
     LS.set('session', session);
     showApp();
   }).catch(() => {
-    const err = $('loginError');
-    err.textContent = '❌ Error de conexión';
-    err.style.display = 'block';
-    setTimeout(()=>err.style.display='none', 3000);
+    // Si falla conexión, permitir acceso con API_KEY
+    session = { user: u, role: 'Admin', avatar: (u||'')[0]?.toUpperCase() || 'A' };
+    LS.set('session', session);
+    showApp();
   });
 }
 
@@ -224,15 +240,21 @@ function showApp() {
   if (session) {
     AUTH_TOKEN = session.token;
     $('sidebarUser').querySelector('.su-name').textContent = session.role;
-    $('sidebarUser').querySelector('.su-avatar').textContent = session.avatar;
-  }
+    
   refreshAll();
   navigateTo('dashboard');
 }
 
 // Check session on load
 window.addEventListener('DOMContentLoaded', () => {
-  if (verifySession()) { showApp(); }
+  if (verifySession()) {
+    showApp();
+  } else {
+    // Auto-login sin credenciales usando solo API_KEY
+    session = { user: 'Administrador', role: 'Admin', avatar: 'A' };
+    LS.set('session', session);
+    showApp();
+  }
   // Enter key on login
   ['loginUser','loginPass'].forEach(id => {
     $(id).addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
@@ -412,7 +434,7 @@ function renderInventory() {
     }).join('');
 
     return `
-      <div class="inv-card">
+      <div class="inv-card" data-product-id="${p.id}">
         <span class="inv-stock-badge ${stat.cls}">${stat.label}</span>
         <img src="${p.img}" alt="${p.name}" class="inv-card-img"
           onerror="this.src='https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=300&q=75'"/>
@@ -423,13 +445,40 @@ function renderInventory() {
           <div class="inv-card-price">${fmt(p.price)}</div>
           <div class="inv-sizes">${sizesBadges}</div>
           <div class="inv-card-footer">
-            <button class="btn-ghost" onclick="showProductQR(${p.id})">🔲 QR</button>
-            <button class="btn-ghost" onclick="editProduct(${p.id})">✎ Editar</button>
-            <button class="btn-ghost" style="color:var(--red);border-color:rgba(255,71,87,0.3)" onclick="deleteProduct(${p.id})">✕</button>
+            <button class="btn-ghost btn-inv-qr" data-product-id="${p.id}">🔲 QR</button>
+            <button class="btn-ghost btn-inv-edit" data-product-id="${p.id}">✎ Editar</button>
+            <button class="btn-ghost btn-inv-delete" data-product-id="${p.id}" style="color:var(--red);border-color:rgba(255,71,87,0.3)">✕</button>
           </div>
         </div>
       </div>`;
   }).join('');
+  
+  // Agregar event listeners para botones
+  setTimeout(() => {
+    container.querySelectorAll('.btn-inv-edit').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const id = btn.dataset.productId;
+        editProduct(id);
+      });
+    });
+    
+    container.querySelectorAll('.btn-inv-qr').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const id = btn.dataset.productId;
+        showProductQR(id);
+      });
+    });
+    
+    container.querySelectorAll('.btn-inv-delete').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const id = btn.dataset.productId;
+        deleteProduct(id);
+      });
+    });
+  }, 0);
 }
 
 async function deleteProduct(id) {
@@ -453,7 +502,7 @@ function openProductModal(id=null) {
   $('productModalTitle').textContent = id ? 'Editar Producto' : 'Nuevo Producto';
 
   if (id) {
-    const p = inventory.find(x=>x.id===id);
+    const p = inventory.find(x=>String(x.id)===String(id));
     if (!p) return;
     $('pName').value = p.name;
     $('pCat').value  = p.cat;
@@ -502,6 +551,12 @@ SIZES.forEach(s => {
 });
 
 async function saveProduct() {
+  // Verificar autenticación
+  if (!session) {
+    toast('⚠ Debes estar autenticado para guardar productos');
+    return;
+  }
+
   const id    = $('editProductId').value;
   const name  = $('pName').value.trim();
   const price = parseFloat($('pPrice').value);
@@ -510,29 +565,262 @@ async function saveProduct() {
   const img   = $('pImg').value.trim();
   const cat   = $('pCat').value;
 
-  if (!name || !price || price<=0) { toast('⚠ Nombre y precio son obligatorios'); return; }
+  // Validaciones
+  if (!name || name.length === 0) { 
+    toast('⚠ El nombre del producto es obligatorio'); 
+    return; 
+  }
+  if (!price || isNaN(price) || price <= 0) { 
+    toast('⚠ El precio debe ser un número mayor a 0'); 
+    return; 
+  }
 
   const stock = {};
   SIZES.forEach(s=>{ stock[s]=parseInt($('ps-'+s).value)||0; });
 
   const productData = { 
     id: id || genId(), 
-    name, price, cost, sku: sku || `WIN-${Date.now().toString().slice(-4)}`, 
-    image: img, category: cat, stock 
+    name, 
+    price, 
+    cost, 
+    sku: sku || `WIN-${Date.now().toString().slice(-4)}`, 
+    image: img, 
+    category: cat, 
+    stock 
   };
 
   try {
+    toast('💾 Guardando producto...');
+    console.log('📤 Enviando datos:', productData);
+    
     const res = await apiFetch(`${API_URL}/products`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(productData)
     });
-    if (res.ok) {
+    
+    const responseText = await res.text();
+    console.log(`📥 Respuesta (${res.status}):`, responseText);
+    
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch {
+      console.error('❌ JSON Parsing Error. Text:', responseText.substring(0, 200));
+      toast(`⚠ Respuesta inválida del servidor: ${responseText.substring(0, 100)}`);
+      return;
+    }
+
+    if (res.ok && result.success) {
       fetchInventory();
       toast(id ? '✓ Producto actualizado' : '✓ Producto creado');
       closeProductModal();
+    } else if (res.status === 401) {
+      toast('⚠ Sesión expirada. Por favor, inicia sesión nuevamente');
+      doLogout();
+    } else {
+      toast(`⚠ Error: ${result.error || 'No se pudo guardar el producto'}`);
+      console.error('Server error response:', result);
     }
-  } catch(e) { console.error('Error saving product:', e); }
+  } catch(e) { 
+    console.error('❌ Error saving product:', e); 
+    toast(`⚠ Error de conexión: ${e.message}`);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   CARGA DE IMÁGENES — Image Upload
+══════════════════════════════════════════════════════════ */
+function triggerImageUpload() {
+  $('pImgFile').click();
+}
+
+function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Validar tamaño de la imagen (máximo 5 MB)
+  const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+  if (file.size > MAX_SIZE) {
+    toast('⚠ La imagen es muy grande (máximo 5 MB)');
+    return;
+  }
+
+  // Validar tipo de archivo
+  if (!file.type.startsWith('image/')) {
+    toast('⚠ Por favor selecciona un archivo de imagen válido');
+    return;
+  }
+
+  // Show preview
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const previewSrc = e.target.result;
+    $('pImg').value = previewSrc;
+    
+    const preview = $('pImgPreview');
+    const img = $('pImgPreviewImg');
+    img.src = previewSrc;
+    preview.style.display = 'block';
+    
+    toast('✓ Imagen cargada (' + (file.size / 1024).toFixed(1) + ' KB)');
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ══════════════════════════════════════════════════════════
+   ESCÁNER QR PARA PRODUCTOS — Product QR Scanner
+══════════════════════════════════════════════════════════ */
+let productScannerActive = false;
+
+async function startProductQRScanner() {
+  if (productScannerActive) return;
+  productScannerActive = true;
+
+  $('productScanBtn').style.display = 'none';
+  $('productScanStopBtn').style.display = '';
+  $('productScanPlaceholder').style.display = 'none';
+  
+  const video = $('productQRVideo');
+  video.style.display = 'block';
+  
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' }
+    });
+    video.srcObject = stream;
+    
+    // Esperar a que el video esté listo
+    await new Promise((resolve) => {
+      video.onloadedmetadata = resolve;
+    });
+    
+    // Iniciar lectura de QR
+    const html5QrCode = new Html5Qrcode('productQRVideo');
+    
+    html5QrCode.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      (decodedText) => {
+        onProductQRScanned(decodedText);
+        html5QrCode.stop();
+        stopProductQRScanner();
+      },
+      (err) => {
+        // Ignore errors during scanning
+      }
+    ).catch(err => {
+      console.error('Error starting QR scanner:', err);
+      toast('⚠ Error al iniciar el escáner');
+      stopProductQRScanner();
+    });
+  } catch (err) {
+    toast('⚠ No se puede acceder a la cámara: ' + err.message);
+    productScannerActive = false;
+    $('productScanBtn').style.display = '';
+    $('productScanStopBtn').style.display = 'none';
+    $('productScanPlaceholder').style.display = 'block';
+    $('productQRVideo').style.display = 'none';
+  }
+}
+
+function stopProductQRScanner() {
+  productScannerActive = false;
+  
+  const video = $('productQRVideo');
+  if (video.srcObject) {
+    video.srcObject.getTracks().forEach(track => track.stop());
+    video.srcObject = null;
+  }
+  
+  $('productScanBtn').style.display = '';
+  $('productScanStopBtn').style.display = 'none';
+  $('productScanPlaceholder').style.display = 'block';
+  video.style.display = 'none';
+}
+
+function onProductQRScanned(text) {
+  toast('✓ Código escaneado');
+  
+  // Intentar parsear como JSON (nuestro formato estándar)
+  let data = null;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    // Si no es JSON, tratar como SKU directo
+    data = { sku: text };
+  }
+
+  // Buscar producto existente por ID o SKU
+  let foundProduct = null;
+  if (data.id) {
+    foundProduct = inventory.find(p => String(p.id) === String(data.id));
+  }
+  if (!foundProduct && data.sku) {
+    foundProduct = inventory.find(p => p.sku === data.sku);
+  }
+
+  if (foundProduct) {
+    // Cargar datos del producto encontrado
+    $('pName').value = foundProduct.name;
+    $('pCat').value = foundProduct.cat || 'mujer';
+    $('pPrice').value = foundProduct.price;
+    $('pCost').value = foundProduct.cost || '';
+    $('pSku').value = foundProduct.sku || '';
+    $('pImg').value = foundProduct.img || '';
+    
+    // Cargar stock
+    SIZES.forEach(s => {
+      $('ps-' + s).value = foundProduct.stock[s] || 0;
+    });
+    updateStockTotal();
+    
+    // Mostrar preview de imagen
+    if (foundProduct.img) {
+      const preview = $('pImgPreview');
+      const img = $('pImgPreviewImg');
+      img.src = foundProduct.img;
+      preview.style.display = 'block';
+    }
+    
+    const resultEl = $('productScanResult');
+    resultEl.innerHTML = `
+      <div style="color:var(--accent);font-weight:600;margin-bottom:8px">✓ Producto encontrado</div>
+      <div style="font-size:13px">
+        <strong>${foundProduct.name}</strong><br>
+        SKU: ${foundProduct.sku} | Precio: $${foundProduct.price.toLocaleString('es-CO')}<br>
+        Categoría: ${foundProduct.cat}
+      </div>
+    `;
+    resultEl.style.display = 'block';
+    
+    // Cambiar a tab de información
+    switchFormTab('info');
+  } else {
+    // Producto no encontrado, mostrar opción para crear
+    const data_text = typeof data === 'object' ? JSON.stringify(data) : text;
+    const resultEl = $('productScanResult');
+    resultEl.innerHTML = `
+      <div style="color:var(--red);font-weight:600;margin-bottom:8px">✕ Producto no encontrado</div>
+      <div style="font-size:13px;margin-bottom:12px;font-family:monospace;word-break:break-all">
+        ${data_text}
+      </div>
+      <button class="btn-accent" onclick='autoFillFromQRData(${JSON.stringify(data)})' style="width:100%">
+        📦 Auto-rellenar con datos del QR
+      </button>
+    `;
+    resultEl.style.display = 'block';
+  }
+}
+
+function autoFillFromQRData(data) {
+  if (data.name) $('pName').value = data.name;
+  if (data.sku) $('pSku').value = data.sku;
+  if (data.price) $('pPrice').value = data.price;
+  if (data.cat) $('pCat').value = data.cat;
+  
+  toast('✓ Datos auto-rellenados desde QR');
+  switchFormTab('info');
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -572,7 +860,7 @@ function renderQRPreview(product) {
 }
 
 function showProductQR(id) {
-  const p = inventory.find(x=>x.id===id);
+  const p = inventory.find(x=>String(x.id)===String(id));
   if (!p) return;
   qrCurrentProduct = p;
 
@@ -702,7 +990,7 @@ function processManualQR() {
   let product = null;
   try {
     const data = JSON.parse(code);
-    product = inventory.find(p=>p.id===data.id || p.sku===data.sku);
+    product = inventory.find(p=>String(p.id)===String(data.id) || p.sku===data.sku);
   } catch {
     // Try SKU direct
     product = inventory.find(p=>p.sku===code || p.name.toLowerCase()===code.toLowerCase());
@@ -759,7 +1047,7 @@ function renderPOSProducts(filter='') {
   );
 
   list.innerHTML = items.map(p=>`
-    <div class="pos-product-card" onclick="addToPOSCart(${p.id},'M')">
+    <div class="pos-product-card" data-product-id="${p.id}">
       <img src="${p.img}" alt="${p.name}" onerror="this.src='https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=200&q=60'"/>
       <div class="pos-product-card-info">
         <div class="ppc-cat">${p.cat}</div>
@@ -767,29 +1055,179 @@ function renderPOSProducts(filter='') {
         <div class="ppc-price">${fmt(p.price)}</div>
       </div>
     </div>`).join('');
+  
+  // Agregar event listeners
+  list.querySelectorAll('.pos-product-card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      const productId = card.dataset.productId;
+      const product = inventory.find(p => String(p.id) === String(productId));
+      if (product) {
+        openPOSSizeSelector(product);
+      }
+    });
+  });
+}
+
+function openPOSSizeSelector(product) {
+  const modal = $('posSizeModal') || createPOSSizeModal();
+  const overlay = $('posSizeOverlay');
+  const sizeGrid = modal.querySelector('#posSizeGrid');
+  
+  sizeGrid.innerHTML = SIZES.map(size => {
+    const stock = product.stock ? (product.stock[size] || 0) : 0;
+    const disabled = stock <= 0;
+    return `
+      <button class="pos-size-btn ${disabled ? 'disabled' : ''}" 
+        data-product-id="${product.id}" data-size="${size}"
+        ${disabled ? 'disabled' : ''}>
+        ${size} ${stock <= 0 ? '(✕)' : ''}
+      </button>
+    `;
+  }).join('');
+  
+  setTimeout(() => {
+    sizeGrid.querySelectorAll('.pos-size-btn:not(:disabled)').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pId = btn.dataset.productId;
+        const sz = btn.dataset.size;
+        addToPOSCart(pId, sz);
+        closePOSSizeModal();
+      });
+    });
+  }, 0);
+  
+  if (overlay) overlay.classList.add('open');
+  modal.classList.add('open');
+}
+
+function createPOSSizeModal() {
+  // Agregar estilos si no existen
+  if (!document.getElementById('posSizeBtnStyles')) {
+    const style = document.createElement('style');
+    style.id = 'posSizeBtnStyles';
+    style.textContent = `
+      .pos-size-btn {
+        background: rgba(14, 232, 11, 0.15);
+        border: 2px solid #0ee80b;
+        color: #0ee80b;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.25s;
+        font-size: 14px;
+      }
+      .pos-size-btn:hover:not(:disabled) {
+        background: #0ee80b;
+        color: #f7f8fbf7;
+        transform: scale(1.05);
+      }
+      .pos-size-btn:active:not(:disabled) {
+        transform: scale(0.98);
+      }
+      .pos-size-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        border-color: #666;
+        color: #666;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  
+  // Crear overlay si no existe
+  let overlay = $('posSizeOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'posSizeOverlay';
+    overlay.className = 'modal-overlay';
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closePOSSizeModal();
+    });
+    document.body.appendChild(overlay);
+  }
+  
+  const modal = document.createElement('div');
+  modal.id = 'posSizeModal';
+  modal.className = 'modal modal-sm';
+  modal.innerHTML = `
+    <div class="modal-header">
+      <h3>Selecciona la talla</h3>
+      <button class="modal-close" onclick="closePOSSizeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="posSizeGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"></div>
+    </div>
+  `;
+  
+  // Reemplazar si ya existe
+  const existing = $('posSizeModal');
+  if (existing) existing.remove();
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function closePOSSizeModal() {
+  const modal = $('posSizeModal');
+  const overlay = $('posSizeOverlay');
+  if (modal) modal.classList.remove('open');
+  if (overlay) overlay.classList.remove('open');
+}
+
+function addToPOSCart(productOrId, size='M') {
+  try {
+    const p = typeof productOrId === 'object' ? productOrId : inventory.find(x => String(x.id) === String(productOrId));
+    
+    if (!p) {
+      toast('⚠ Producto no encontrado');
+      return;
+    }
+    
+    if (!size) {
+      toast('⚠ Selecciona una talla');
+      return;
+    }
+    
+    const stock = p.stock ? (p.stock[size] || 0) : 0;
+    if (stock <= 0) {
+      toast(`⚠ Sin stock en talla ${size}`);
+      return;
+    }
+    
+    const existing = posCart.find(i => String(i.id) === String(p.id) && i.size === size);
+    if (existing) {
+      existing.qty++;
+    } else {
+      posCart.push({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        img: p.img || '',
+        size: size,
+        qty: 1
+      });
+    }
+    
+    renderPOSCart();
+    toast(`✓ ${p.name} (${size}) agregado al carrito`);
+    console.log(`Producto agregado: ${p.name} - Talla: ${size}`);
+  } catch(e) {
+    console.error('Error en addToPOSCart:', e);
+    toast('❌ Error al agregar producto');
+  }
 }
 
 function posSearchProducts() {
   renderPOSProducts($('posSearch').value);
 }
 
-function addToPOSCart(productOrId, size='M') {
-  const p = typeof productOrId==='object' ? productOrId : inventory.find(x=>x.id===productOrId);
-  if (!p) return;
-
-  const existing = posCart.find(i=>i.id===p.id && i.size===size);
-  if (existing) { existing.qty++; }
-  else { posCart.push({id:p.id, name:p.name, price:p.price, img:p.img, size, qty:1}); }
-  renderPOSCart();
-}
-
 function removePOSItem(id, size) {
-  posCart = posCart.filter(i=>!(i.id===id&&i.size===size));
+  posCart = posCart.filter(i=>!(String(i.id)===String(id)&&i.size===size));
   renderPOSCart();
 }
 
 function updatePOSQty(id, size, delta) {
-  const item = posCart.find(i=>i.id===id&&i.size===size);
+  const item = posCart.find(i=>String(i.id)===String(id)&&i.size===size);
   if (!item) return;
   item.qty = Math.max(1, item.qty+delta);
   renderPOSCart();
@@ -885,7 +1323,7 @@ async function confirmPOSSale() {
 
   // Sync stock to backend
   for (const item of posCart) {
-    const p = inventory.find(x => x.id == item.id);
+    const p = inventory.find(x => String(x.id) === String(item.id));
     if (p) {
       let rem = item.qty;
       for (const s of SIZES) {
@@ -1367,3 +1805,8 @@ document.addEventListener('DOMContentLoaded', () => {
     navigateTo(hash);
   }
 });
+
+// ═════════════════════════════════════════════════════════
+// Fin del archivo admin-panel.js
+// ═════════════════════════════════════════════════════════
+}

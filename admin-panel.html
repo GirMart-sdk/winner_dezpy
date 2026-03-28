@@ -456,6 +456,7 @@
       <button class="ftab active" data-ftab="info" onclick="switchFormTab('info')">📋 Información</button>
       <button class="ftab" data-ftab="stock" onclick="switchFormTab('stock')">📦 Stock</button>
       <button class="ftab" data-ftab="qr" onclick="switchFormTab('qr')">🔲 Código QR</button>
+      <button class="ftab" data-ftab="scan" onclick="switchFormTab('scan')">📷 Escanear</button>
     </div>
     <!-- INFO TAB -->
     <div class="ftab-content active" id="ftab-info">
@@ -492,9 +493,19 @@
           </div>
         </div>
       </div>
-      <div class="form-group full">
-        <label>URL imagen</label>
-        <input type="text" id="pImg" placeholder="https://..."/>
+      <div class="form-row">
+        <div class="form-group">
+          <label>URL imagen</label>
+          <input type="text" id="pImg" placeholder="https://..."/>
+        </div>
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <button class="btn-ghost" onclick="triggerImageUpload()" type="button">📁 Subir imagen</button>
+          <input type="file" id="pImgFile" accept="image/*" style="display:none" onchange="handleImageUpload(event)"/>
+        </div>
+      </div>
+      <div id="pImgPreview" style="margin-top:12px;text-align:center;display:none">
+        <img id="pImgPreviewImg" style="max-width:100%;max-height:200px;border-radius:6px;border:1px solid var(--border)"/>
       </div>
     </div>
     <!-- STOCK TAB -->
@@ -524,6 +535,27 @@
       <div style="display:flex;gap:10px;margin-top:14px">
         <button class="btn-ghost" onclick="printProductQR()">🖨 Imprimir QR</button>
         <button class="btn-ghost" onclick="downloadProductQR()">⬇ Descargar QR</button>
+      </div>
+    </div>
+    <!-- SCAN TAB -->
+    <div class="ftab-content" id="ftab-scan">
+      <p style="font-size:13px;color:var(--gray-text);margin-bottom:16px">
+        Escanea un código QR de producto para auto-rellenar los datos. El QR debe contener información del producto.
+      </p>
+      <div id="productScanContainer" style="border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;margin-bottom:16px">
+        <video id="productQRVideo" style="width:100%;max-width:100%;border-radius:6px;display:none"></video>
+        <div id="productScanPlaceholder" style="color:var(--gray-text);padding:40px 20px">
+          <div style="font-size:32px;margin-bottom:10px">📷</div>
+          <div>Cámara inactiva</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn-accent" id="productScanBtn" onclick="startProductQRScanner()">📷 Iniciar escáner</button>
+        <button class="btn-ghost" id="productScanStopBtn" onclick="stopProductQRScanner()" style="display:none">⏹ Detener</button>
+      </div>
+      <div id="productScanResult" style="margin-top:16px;padding:12px;background:var(--gray2);border-radius:6px;display:none">
+        <div style="color:var(--accent);font-weight:600;margin-bottom:8px">✓ QR Escaneado</div>
+        <div id="productScanResultText" style="font-size:13px"></div>
       </div>
     </div>
   </div>

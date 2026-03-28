@@ -15,14 +15,6 @@ const API_URL = (() => {
   return `${origin.replace(/\/$/, "")}/api`;
 })();
 window.API_URL = API_URL;
-const API_KEY = window.API_KEY || "dev-api-key";
-const API_HEADERS = { "x-api-key": API_KEY };
-
-const apiFetch = (url, options = {}) =>
-  fetch(url, {
-    ...options,
-    headers: { ...(options.headers || {}), ...API_HEADERS },
-  });
 
 // API key puede venir inyectada o caer al valor de desarrollo.
 const API_KEY =
@@ -68,27 +60,48 @@ async function fetchProducts() {
 }
 
 async function registerOnlineSale(method) {
-  const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+  const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
   const saleData = {
     id: "ON" + Date.now().toString(36).toUpperCase(),
     timestamp: new Date().toISOString(),
     vendor: "Tienda Online",
     client: "Cliente Web",
     method: method,
-    total: total,
-    items: cart.map((i) => ({ name: i.name, qty: i.qty, price: i.price })),
+    channel: "online",
+    subtotal: subtotal,
+    discount: 0,
+    total: subtotal,
+    items: cart.map((i) => ({ name: i.name, qty: i.qty, price: i.price, size: i.size || 'M' })),
   };
 
   try {
+    console.log('📤 Guardando venta online:', saleData);
     const res = await apiFetch(`${API_URL}/sales`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(saleData),
     });
-    const result = await res.json();
-    return result.success;
+    
+    const responseText = await res.text();
+    console.log(`📥 Respuesta (${res.status}):`, responseText);
+    
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch {
+      console.error("❌ Error parsing response:", responseText);
+      return false;
+    }
+    
+    if (result.success) {
+      console.log('✅ Venta registrada en admin:', result.id);
+      return true;
+    } else {
+      console.error('⚠️ Server returned error:', result.error);
+      return false;
+    }
   } catch (err) {
-    console.error("Error saving sale:", err);
+    console.error("❌ Error saving sale:", err);
     return false;
   }
 }
@@ -114,10 +127,6 @@ const DOM = {
   menuBtn: document.getElementById("menuBtn"),
   navLinks: document.querySelector(".nav-links"),
 };
-
-/* ══════════════════════════════════════════════════════════
-   CART PERSISTENCE (localStorage)
-══════════════════════════════════════════════════════════ */
 
 /* ══════════════════════════════════════════════════════════
    CART PERSISTENCE (localStorage)

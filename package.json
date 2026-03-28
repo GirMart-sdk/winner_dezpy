@@ -17,11 +17,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-<<<<<<< HEAD
     "jsonwebtoken": "^9.0.3",
-=======
-    "jsonwebtoken": "^9.0.2",
->>>>>>> 108315b9b7d290994e2f545c827cc63f0da3817f
     "sqlite3": "^5.1.7"
   }
 }
