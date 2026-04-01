@@ -1,15 +1,13 @@
 /* ═══════════════════════════════════════════════════════════
-   WINNER STORE — seed.js  v2.0
+   WINNER STORE — seed.js  v3.0
+   ✅ Compatible con SQLite + PostgreSQL
    25 productos + 45 ventas de muestra de los últimos 14 días
    Uso: node backend/seed.js   (desde la raíz del proyecto)
    ═══════════════════════════════════════════════════════════ */
 'use strict';
 
-const sqlite3 = require('sqlite3').verbose();
-const path    = require('path');
-
-const dbPath = path.resolve(__dirname, 'winner_store.db');
-const db     = new sqlite3.Database(dbPath);
+require('dotenv').config();
+const db = require('./database');
 
 /* ── Productos ──────────────────────────────────────────── */
 const PRODUCTS = [
@@ -84,64 +82,91 @@ for (let day = 0; day < 14; day++) {
 }
 
 /* ── Ejecutar ───────────────────────────────────────────── */
-db.serialize(() => {
-  console.log('\n Iniciando seed WINNER STORE v2.0...\n');
+async function startSeed() {
+  console.log('\n 🌱 Iniciando seed WINNER STORE v3.0...\n');
 
-  db.run('PRAGMA foreign_keys = OFF');
+  // Limpiar datos existentes
+  db.run('DELETE FROM sale_items', (err) => {
+    if (err && !err.message.includes('no such table')) console.error('❌ Error limpiando sale_items:', err.message);
+  });
 
-  db.run(`CREATE TABLE IF NOT EXISTS products (
-    id TEXT PRIMARY KEY, name TEXT NOT NULL, price REAL NOT NULL,
-    oldPrice REAL, cost REAL DEFAULT 0, category TEXT,
-    image TEXT, badge TEXT, badgeType TEXT, sku TEXT, description TEXT)`);
+  db.run('DELETE FROM sales', (err) => {
+    if (err && !err.message.includes('no such table')) console.error('❌ Error limpiando sales:', err.message);
+  });
 
-  db.run(`CREATE TABLE IF NOT EXISTS inventory (
-    product_id TEXT NOT NULL, size TEXT NOT NULL, qty INTEGER DEFAULT 0,
-    PRIMARY KEY(product_id, size))`);
+  db.run('DELETE FROM inventory', (err) => {
+    if (err && !err.message.includes('no such table')) console.error('❌ Error limpiando inventory:', err.message);
+  });
 
-  db.run(`CREATE TABLE IF NOT EXISTS sales (
-    id TEXT PRIMARY KEY, timestamp TEXT NOT NULL,
-    vendor TEXT DEFAULT 'Vendedor', client TEXT DEFAULT '-',
-    method TEXT, channel TEXT DEFAULT 'fisica',
-    subtotal REAL DEFAULT 0, discount REAL DEFAULT 0, total REAL NOT NULL)`);
+  db.run('DELETE FROM products', (err) => {
+    if (err && !err.message.includes('no such table')) console.error('❌ Error limpiando products:', err.message);
+  });
 
-  db.run(`CREATE TABLE IF NOT EXISTS sale_items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, sale_id TEXT NOT NULL,
-    product_name TEXT, qty INTEGER DEFAULT 1, price REAL DEFAULT 0, size TEXT DEFAULT 'U')`);
-
-  db.run('DELETE FROM sale_items');
-  db.run('DELETE FROM sales');
-  db.run('DELETE FROM inventory');
-  db.run('DELETE FROM products');
-
-  const stmtP = db.prepare('INSERT INTO products (id,name,price,oldPrice,cost,category,image,badge,badgeType,sku) VALUES (?,?,?,?,?,?,?,?,?,?)');
-  const stmtI = db.prepare('INSERT INTO inventory (product_id,size,qty) VALUES (?,?,?)');
-
+  // Insertar productos
+  let productsInserted = 0;
   PRODUCTS.forEach(p => {
-    stmtP.run(p.id, p.name, p.price, p.oldPrice||null, p.cost, p.cat, p.img, p.badge||null, p.badgeType||null, p.sku);
-    Object.entries(p.stock).forEach(([sz,qty]) => stmtI.run(p.id, sz, qty));
+    db.run(
+      'INSERT INTO products (id,name,price,oldPrice,cost,category,image,badge,badgeType,sku) VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [p.id, p.name, p.price, p.oldPrice || null, p.cost, p.cat, p.img, p.badge || null, p.badgeType || null, p.sku],
+      (err) => {
+        if (err) console.error('❌ Error insertando producto', p.id, ':', err.message);
+        else productsInserted++;
+      }
+    );
+
+    // Insertar inventario por talla
+    Object.entries(p.stock).forEach(([size, qty]) => {
+      db.run(
+        'INSERT INTO inventory (product_id,size,qty) VALUES (?,?,?)',
+        [p.id, size, qty],
+        (err) => {
+          if (err && !err.message.includes('UNIQUE')) {
+            console.error('❌ Error insertando inventory para', p.id, size, ':', err.message);
+          }
+        }
+      );
+    });
   });
-  stmtP.finalize();
-  stmtI.finalize();
 
-  const stmtS  = db.prepare('INSERT INTO sales (id,timestamp,vendor,client,method,channel,subtotal,discount,total) VALUES (?,?,?,?,?,?,?,?,?)');
-  const stmtSI = db.prepare('INSERT INTO sale_items (sale_id,product_name,qty,price,size) VALUES (?,?,?,?,?)');
-
+  // Insertar ventas
+  let salesInserted = 0;
   SALES.forEach(s => {
-    stmtS.run(s.id, s.timestamp, s.vendor, s.client, s.method, s.channel, s.subtotal, s.discount, s.total);
-    s.items.forEach(i => stmtSI.run(s.id, i.name, i.qty, i.price, i.size));
+    db.run(
+      'INSERT INTO sales (id,timestamp,vendor,client,method,channel,subtotal,discount,total) VALUES (?,?,?,?,?,?,?,?,?)',
+      [s.id, s.timestamp, s.vendor, s.client, s.method, s.channel, s.subtotal, s.discount, s.total],
+      (err) => {
+        if (err) console.error('❌ Error insertando venta', s.id, ':', err.message);
+        else salesInserted++;
+      }
+    );
+
+    // Insertar items de ventas
+    s.items.forEach(i => {
+      db.run(
+        'INSERT INTO sale_items (sale_id,product_name,qty,price,size) VALUES (?,?,?,?,?)',
+        [s.id, i.name, i.qty, i.price, i.size],
+        (err) => {
+          if (err) console.error('❌ Error insertando sale_item:', err.message);
+        }
+      );
+    });
   });
-  stmtS.finalize();
-  stmtSI.finalize((err) => {
-    if (err) { console.error('Error en seed:', err.message); db.close(); return; }
-    const rev = SALES.reduce((s,x)=>s+x.total,0);
-    console.log('Productos cargados : ' + PRODUCTS.length);
-    console.log('  Mujer      : 8 (P001-P008)');
-    console.log('  Hombre     : 8 (P009-P016)');
-    console.log('  Accesorios : 9 (P017-P025)');
-    console.log('Ventas muestra: ' + SALES.length + ' (14 dias)');
-    console.log('Revenue total : $' + rev.toLocaleString('es-CO'));
-    console.log('\n npm start  ->  http://localhost:3000');
-    console.log('Panel admin ->  admin / winner2026\n');
+
+  // Mostrar resumen después de un breve delay para permitir que se inserten todos
+  setTimeout(() => {
+    const rev = SALES.reduce((sum, x) => sum + x.total, 0);
+    console.log('✅ Productos cargados : ' + PRODUCTS.length);
+    console.log('   Mujer      : 8 (P001-P008)');
+    console.log('   Hombre     : 8 (P009-P016)');
+    console.log('   Accesorios : 9 (P017-P025)');
+    console.log('✅ Ventas muestra: ' + SALES.length + ' (14 dias)');
+    console.log('💰 Revenue total : $' + rev.toLocaleString('es-CO'));
+    console.log('\n 🚀 npm start  ->  http://localhost:3000');
+    console.log('🔐 Panel admin ->  admin / winner2026\n');
+    
     db.close();
-  });
-});
+    process.exit(0);
+  }, 2000);
+}
+
+startSeed();

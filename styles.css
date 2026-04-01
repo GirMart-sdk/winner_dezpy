@@ -1,8 +1,8 @@
-/* ═══════════════════════════════════════════════════════
-   WINNER STORE — styles.css
-   ═══════════════════════════════════════════════════════ */
+﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   WINNER STORE â€” styles.css
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── TOKENS ───────────────────────────────────────────── */
+/* â”€â”€ TOKENS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :root {
   --black: #0a0a0a;
   --black-soft: #111111;
@@ -20,7 +20,7 @@
   --shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
 }
 
-/* ── RESET & BASE ─────────────────────────────────────── */
+/* â”€â”€ RESET & BASE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 *,
 *::before,
 *::after {
@@ -56,7 +56,7 @@ a {
   color: inherit;
 }
 
-/* ── SCROLLBAR ─────────────────────────────────────────── */
+/* â”€â”€ SCROLLBAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 ::-webkit-scrollbar {
   width: 5px;
 }
@@ -74,7 +74,7 @@ a {
   background: var(--accent);
 }
 
-/* ── CUSTOM CURSOR ─────────────────────────────────────── */
+/* â”€â”€ CUSTOM CURSOR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 /* #cursor {
   width: 10px;
   height: 10px;
@@ -111,7 +111,7 @@ body.cursor-hover #cursor-ring {
   height: 52px;
 } */
 
-/* ── TOAST ─────────────────────────────────────────────── */
+/* â”€â”€ TOAST â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .toast {
   position: fixed;
   bottom: 32px;
@@ -143,7 +143,7 @@ body.cursor-hover #cursor-ring {
   font-weight: 900;
 }
 
-/* ── CART DRAWER ───────────────────────────────────────── */
+/* â”€â”€ CART DRAWER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .cart-overlay {
   position: fixed;
   inset: 0;
@@ -325,7 +325,7 @@ body.cursor-hover #cursor-ring {
   transform: scale(1.02);
 }
 
-/* ── NAVBAR ─────────────────────────────────────────────── */
+/* â”€â”€ NAVBAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 nav {
   position: fixed;
   top: 0;
@@ -472,7 +472,7 @@ nav.scrolled {
   transition: all var(--transition);
 }
 
-/* ── MOBILE MENU OVERLAY ───────────────────────────────── */
+/* â”€â”€ MOBILE MENU OVERLAY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .nav-links.mobile-open {
   display: flex !important;
   position: fixed;
@@ -522,7 +522,7 @@ nav.scrolled {
   transform: rotate(-45deg) translate(5px, -5px);
 }
 
-/* ── HERO ─────────────────────────────────────────────── */
+/* â”€â”€ HERO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .hero {
   min-height: 100vh;
   display: grid;
@@ -777,7 +777,7 @@ nav.scrolled {
   color: var(--accent);
 }
 
-/* ── MARQUEE ─────────────────────────────────────────────── */
+/* â”€â”€ MARQUEE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .marquee-section {
   overflow: hidden;
   border-top: 1px solid var(--border);
@@ -819,7 +819,7 @@ nav.scrolled {
   font-size: 18px;
 }
 
-/* ── SECTION COMMONS ─────────────────────────────────────── */
+/* â”€â”€ SECTION COMMONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .categories,
 .products,
 .featured,
@@ -952,7 +952,7 @@ nav.scrolled {
   border-color: var(--accent);
 }
 
-/* ── FILTER BAR ─────────────────────────────────────────── */
+/* â”€â”€ FILTER BAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .filter-bar {
   display: flex;
   gap: 8px;
@@ -981,7 +981,7 @@ nav.scrolled {
   border-color: var(--accent);
 }
 
-/* ── PRODUCTS GRID ─────────────────────────────────────── */
+/* â”€â”€ PRODUCTS GRID â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .products-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1133,7 +1133,7 @@ nav.scrolled {
   text-decoration: line-through;
 }
 
-/* ── PROMO BANNER ─────────────────────────────────────── */
+/* â”€â”€ PROMO BANNER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .promo-banner {
   margin: 0 80px 100px;
   background: var(--accent);
@@ -1210,7 +1210,7 @@ nav.scrolled {
   margin-left: auto;
 }
 
-/* ── FEATURED ─────────────────────────────────────────── */
+/* â”€â”€ FEATURED â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .featured-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1301,7 +1301,7 @@ nav.scrolled {
   border-color: var(--accent);
 }
 
-/* ── TESTIMONIALS ─────────────────────────────────────── */
+/* â”€â”€ TESTIMONIALS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .testimonials {
   background: var(--gray);
 }
@@ -1366,7 +1366,7 @@ nav.scrolled {
   margin-top: 2px;
 }
 
-/* ── NEWSLETTER ───────────────────────────────────────── */
+/* â”€â”€ NEWSLETTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .newsletter {
   text-align: center;
 }
@@ -1434,7 +1434,7 @@ nav.scrolled {
   background: var(--white);
 }
 
-/* ── FOOTER ─────────────────────────────────────────────── */
+/* â”€â”€ FOOTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 footer {
   background: var(--gray);
   border-top: 1px solid var(--border);
@@ -1541,7 +1541,7 @@ footer {
   font-weight: 700;
 }
 
-/* ── REVEAL ANIMATION ─────────────────────────────────── */
+/* â”€â”€ REVEAL ANIMATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .fade-up {
   animation: fadeUp 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   opacity: 0;
@@ -1586,7 +1586,7 @@ footer {
   transform: translateY(0);
 }
 
-/* ── RESPONSIVE ─────────────────────────────────────────── */
+/* â”€â”€ RESPONSIVE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 1200px) {
   .products-grid {
     grid-template-columns: repeat(3, 1fr);
@@ -1721,7 +1721,7 @@ footer {
   }
 }
 
-/* ── TOUCH DEVICE: hide custom cursor ──────────────────── */
+/* â”€â”€ TOUCH DEVICE: hide custom cursor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (hover: none) and (pointer: coarse) {
 
   #cursor,
@@ -1734,7 +1734,7 @@ footer {
   }
 }
 
-/* ── IMAGE LOAD ANIMATION ──────────────────────────────── */
+/* â”€â”€ IMAGE LOAD ANIMATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .img-loading {
   opacity: 0;
   transition: opacity 0.5s ease;
@@ -1744,9 +1744,9 @@ footer {
   opacity: 1;
 }
 
-/* ════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    COLORFUL FOOTER PAYMENT ICONS
-════════════════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .pi-pse {
   background: rgba(30, 144, 255, 0.15) !important;
   color: #1e90ff !important;
@@ -1777,9 +1777,9 @@ footer {
   border-color: rgba(255, 107, 0, 0.3) !important;
 }
 
-/* ════════════════════════════════════════════════════════
-   ADMIN PANEL — FAB BUTTON
-════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   ADMIN PANEL â€” FAB BUTTON
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .admin-fab {
   position: fixed;
   bottom: 28px;
@@ -1807,7 +1807,7 @@ footer {
   box-shadow: 0 6px 28px rgba(232, 255, 71, 0.4);
 }
 
-/* ── OVERLAY ──────────────────────────────────────────── */
+/* â”€â”€ OVERLAY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .admin-overlay {
   position: fixed;
   inset: 0;
@@ -1824,7 +1824,7 @@ footer {
   pointer-events: all;
 }
 
-/* ── ADMIN PANEL DRAWER ──────────────────────────────── */
+/* â”€â”€ ADMIN PANEL DRAWER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .admin-panel {
   position: fixed;
   top: 0;
@@ -1903,7 +1903,7 @@ footer {
   opacity: 1;
 }
 
-/* ── ADMIN TABS ──────────────────────────────────────── */
+/* â”€â”€ ADMIN TABS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .adm-tabs {
   display: flex;
   border-bottom: 1px solid var(--border);
@@ -1939,7 +1939,7 @@ footer {
   border-bottom-color: var(--accent);
 }
 
-/* ── TAB CONTENT ─────────────────────────────────────── */
+/* â”€â”€ TAB CONTENT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .adm-content {
   display: none;
   flex: 1;
@@ -1975,7 +1975,7 @@ footer {
   border-bottom: 1px solid var(--border);
 }
 
-/* ── PAY STATS ────────────────────────────────────────── */
+/* â”€â”€ PAY STATS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .pay-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -2005,9 +2005,9 @@ footer {
   margin-top: 4px;
 }
 
-/* ═══════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    COLORFUL PAYMENT METHOD CARDS
-═══════════════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .pay-methods-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -2099,7 +2099,7 @@ footer {
   white-space: nowrap;
 }
 
-/* ── ADMIN FORMS ─────────────────────────────────────── */
+/* â”€â”€ ADMIN FORMS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .pay-form,
 .sale-form-card {
   background: var(--gray);
@@ -2207,7 +2207,7 @@ footer {
   outline: none;
 }
 
-/* ── ADMIN BUTTONS ────────────────────────────────────── */
+/* â”€â”€ ADMIN BUTTONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .adm-btn-primary {
   background: var(--accent);
   color: var(--black);
@@ -2261,7 +2261,7 @@ footer {
   color: var(--red);
 }
 
-/* ── ADMIN TABLES ─────────────────────────────────────── */
+/* â”€â”€ ADMIN TABLES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .adm-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--border);
@@ -2308,7 +2308,7 @@ footer {
   color: var(--gray-text);
 }
 
-/* ── STATUS BADGES ────────────────────────────────────── */
+/* â”€â”€ STATUS BADGES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .adm-badge-ok {
   display: inline-block;
   padding: 3px 10px;
@@ -2365,7 +2365,7 @@ footer {
   color: var(--gray3);
 }
 
-/* ── SALE ITEM ────────────────────────────────────────── */
+/* â”€â”€ SALE ITEM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .sale-item-row {
   display: flex;
   align-items: center;
@@ -2402,7 +2402,7 @@ footer {
   color: var(--accent);
 }
 
-/* ── SIZE STOCK GRID (modal) ──────────────────────────── */
+/* â”€â”€ SIZE STOCK GRID (modal) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .size-stock-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -2440,7 +2440,7 @@ footer {
   border-color: rgba(232, 255, 71, 0.4);
 }
 
-/* ── ADMIN MODAL ──────────────────────────────────────── */
+/* â”€â”€ ADMIN MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -2512,7 +2512,7 @@ footer {
   gap: 10px;
 }
 
-/* ── ADMIN RESPONSIVE ─────────────────────────────────── */
+/* â”€â”€ ADMIN RESPONSIVE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 600px) {
   .admin-panel {
     width: 100vw;
@@ -2533,4 +2533,173 @@ footer {
   .pay-stats {
     grid-template-columns: 1fr 1fr;
   }
+}/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   RESPONSIVE
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+@media (max-width: 768px) {
+
+  .tracking-tabs {
+    gap: 8px;
+  }
+
+  .tracking-tab-btn {
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+
+  .inventory-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+
+  .analytics-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .order-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
+
+@media (max-width: 600px) {
+  .tracking-tabs {
+    margin-bottom: 24px;
+  }
+
+  .inventory-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-value {
+    font-size: 20px;
+  }
+
+  .chart-bars {
+    height: 140px;
+  }
+
+  .order-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .shipping-card {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   PAYMENT MODAL STYLES
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.payment-modal {
+  max-width: 560px !important;
+}
+
+.payment-step {
+  animation: fadeIn 0.3s ease-in;
+}
+
+.payment-step.active {
+  display: block !important;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.payment-modal input {
+  width: 100% !important;
+  padding: 10px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 4px !important;
+  background: var(--dark) !important;
+  color: white !important;
+  font-size: 14px !important;
+}
+
+.payment-modal input:focus {
+  outline: none;
+  border-color: #3498db !important;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1) !important;
+}
+
+.payment-modal label {
+  font-size: 12px;
+  color: var(--gray-text);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.pay-methods-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.pm-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  border: 2px solid var(--border);
+  background: transparent;
+  transition: all 0.25s;
+  cursor: pointer;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.pm-card:hover {
+  transform: translateY(-2px);
+  border-color: #3498db;
+}
+
+.pm-card.enabled {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+.pm-icon {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.pm-info {
+  flex: 1;
+  width: 100%;
+}
+
+.pm-name {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.pm-status {
+  font-size: 10px;
+  color: var(--gray-text);
+  letter-spacing: 1px;
+}
+

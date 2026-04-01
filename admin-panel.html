@@ -92,6 +92,18 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
         Registro de Ventas
       </button>
+      <button class="snav-item" data-page="vip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M16 11h6"/></svg>
+        Clientes VIP
+      </button>
+      <button class="snav-item" data-page="reorder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="1"/><path d="M19.07 4.93l-2.82 2.82"/><path d="M4.93 4.93l2.82 2.82"/><path d="M19.07 19.07l-2.82-2.82"/><path d="M4.93 19.07l2.82-2.82"/></svg>
+        Reorden Automático
+      </button>
+      <button class="snav-item" data-page="forecast">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="23 6 13.5 15.5 8.5 10.5 1 17"/><polyline points="17 6 23 6 23 12"/></svg>
+        Predicción de Demanda
+      </button>
       <button class="snav-item" data-page="qrscan">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><rect x="7" y="7" width="4" height="4"/><rect x="13" y="7" width="4" height="4"/><rect x="7" y="13" width="4" height="4"/><path d="M13 13h1v1M15 15h2v2M13 17h2"/></svg>
         Escáner QR
@@ -161,6 +173,24 @@
       <div class="dash-grid">
         <div class="dash-card chart-card">
           <div class="dash-card-header">
+            <h3>Ventas por canal</h3>
+          </div>
+          <canvas id="chartChannels" height="200"></canvas>
+        </div>
+        <div class="dash-card chart-card">
+          <div class="dash-card-header">
+            <h3>Top 5 Productos</h3>
+          </div>
+          <canvas id="chartTopProducts" height="200"></canvas>
+        </div>
+        <div class="dash-card chart-card" style="grid-column:1/-1">
+          <div class="dash-card-header">
+            <h3>Ventas últimos 30 días</h3>
+          </div>
+          <canvas id="chartSalesTimeline" height="150"></canvas>
+        </div>
+        <div class="dash-card chart-card">
+          <div class="dash-card-header">
             <h3>Ventas por método de pago</h3>
           </div>
           <canvas id="chartPayMethods" height="220"></canvas>
@@ -188,6 +218,10 @@
         <div class="inv-stat"><span id="is3" style="color:#ff6b6b">0</span><label>Sin stock</label></div>
         <div class="inv-stat"><span id="is4">$0</span><label>Valor inventario</label></div>
       </div>
+
+      <!-- ALERTS DE BAJO STOCK -->
+      <div id="lowStockAlerts" class="low-stock-alerts" style="margin-bottom:20px;"></div>
+
       <div class="toolbar">
         <input class="tb-search" id="invSearch" type="text" placeholder="🔍 Buscar producto..." oninput="renderInventory()"/>
         <select class="tb-select" id="invCatFilter" onchange="renderInventory()">
@@ -339,13 +373,37 @@
       <!-- HISTORIAL PAGOS -->
       <div class="pay-register-card">
         <div class="card-title-row">
-          <h3 class="card-title">Historial de pagos</h3>
+          <h3 class="card-title">Historial de Pagos y Transacciones</h3>
           <button class="btn-ghost-sm" onclick="exportPaymentsCSV()">⬇ CSV</button>
+        </div>
+        <div style="margin-bottom: 12px; display:flex; gap:8px; flex-wrap:wrap;">
+          <input type="date" id="payFilterDate" style="padding:8px;border:1px solid var(--border);border-radius:4px;font-size:12px" onchange="renderPaymentsTable()"/>
+          <select id="payFilterMethod" style="padding:8px;border:1px solid var(--border);border-radius:4px;font-size:12px" onchange="renderPaymentsTable()">
+            <option value="">Todos los métodos</option>
+            <option value="tarjeta">Tarjeta Crédito/Débito</option>
+            <option value="pse">PSE/Transferencia</option>
+            <option value="nequi">Nequi</option>
+            <option value="daviplata">Daviplata</option>
+            <option value="cash">Efectivo</option>
+          </select>
+          <button class="btn-ghost-sm" onclick="document.getElementById('payFilterDate').value=''; document.getElementById('payFilterMethod').value=''; renderPaymentsTable()">Limpiar filtros</button>
         </div>
         <div class="table-wrap">
           <table class="data-table">
-            <thead><tr><th>Fecha/Hora</th><th>Método</th><th>Referencia</th><th>Monto</th><th>Estado</th><th></th></tr></thead>
-            <tbody id="paymentsBody"><tr class="empty-row"><td colspan="6">Sin pagos</td></tr></tbody>
+            <thead>
+              <tr>
+                <th>Fecha/Hora</th>
+                <th>Cliente</th>
+                <th>Método de Pago</th>
+                <th>Detalles</th>
+                <th>Monto</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="paymentsBody">
+              <tr class="empty-row"><td colspan="7">Cargando pagos...</td></tr>
+            </tbody>
           </table>
         </div>
       </div>
@@ -385,6 +443,93 @@
           </thead>
           <tbody id="salesBody"><tr class="empty-row"><td colspan="9">Sin ventas registradas</td></tr></tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: VIP CUSTOMERS ══ -->
+    <div class="page" id="page-vip">
+      <div class="page-header">
+        <h1>Clientes VIP</h1>
+        <p>Análisis y gestión de clientes premium</p>
+      </div>
+      <div class="page-content">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px;">
+          <div class="kpi-card">
+            <div class="kpi-label">Clientes VIP</div>
+            <div class="kpi-val" id="vipCount">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Gasto Total VIP</div>
+            <div class="kpi-val" id="vipSpent">$0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Clientes Regulares</div>
+            <div class="kpi-val" id="regularCount">0</div>
+          </div>
+        </div>
+        <div style="background: var(--gray2); padding: 20px; border-radius: 8px; border: 1px solid var(--border);">
+          <h3 style="margin-bottom: 16px;">Clientes VIP</h3>
+          <table class="admin-table" style="width: 100%;">
+            <thead>
+              <tr><th>Email</th><th>Nombre</th><th>Teléfono</th><th>Total Gastado</th><th>Órdenes</th><th>Última Compra</th></tr>
+            </thead>
+            <tbody id="vipCustomersBody"><tr class="empty-row"><td colspan="6">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: REORDER AUTOMÁTICO ══ -->
+    <div class="page" id="page-reorder">
+      <div class="page-header">
+        <h1>Reorden Automático</h1>
+        <p>Gestión de reordenes automáticas por stock mínimo</p>
+      </div>
+      <div class="page-content">
+        <div style="margin-bottom: 24px;">
+          <button onclick="loadReorderData()" style="padding: 10px 20px; background: var(--accent); color: #000; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+            🔄 Sincronizar Reordenes
+          </button>
+        </div>
+        <div style="background: var(--gray2); padding: 20px; border-radius: 8px; border: 1px solid var(--border);">
+          <h3 style="margin-bottom: 16px;">Productos que Necesitan Reorden</h3>
+          <div id="reorderNeedsList" style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="padding: 12px; background: var(--gray); border-radius: 6px; text-align: center; color: var(--gray-text);">Cargando...</div>
+          </div>
+        </div>
+        <div style="background: var(--gray2); padding: 20px; border-radius: 8px; border: 1px solid var(--border); margin-top: 24px;">
+          <h3 style="margin-bottom: 16px;">Reglas de Reorden Activas</h3>
+          <table class="admin-table" style="width: 100%;">
+            <thead>
+              <tr><th>Producto</th><th>Stock Mínimo</th><th>Cantidad Reorden</th><th>Costo</th><th>Estado</th></tr>
+            </thead>
+            <tbody id="reorderRulesBody"><tr class="empty-row"><td colspan="5">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: PREDICCIÓN DE DEMANDA ══ -->
+    <div class="page" id="page-forecast">
+      <div class="page-header">
+        <h1>Predicción de Demanda</h1>
+        <p>Análisis ML de tendencias y predicciones</p>
+      </div>
+      <div class="page-content">
+        <div style="margin-bottom: 24px;">
+          <button onclick="loadForecastData()" style="padding: 10px 20px; background: var(--accent); color: #000; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+            📊 Calcular Predicciones
+          </button>
+        </div>
+        <div style="background: var(--gray2); padding: 20px; border-radius: 8px; border: 1px solid var(--border);">
+          <h3 style="margin-bottom: 16px;">Predicciones de Demanda</h3>
+          <table class="admin-table" style="width: 100%;">
+            <thead>
+              <tr><th>Producto</th><th>Cantidad Predicha</th><th>Confianza</th><th>Tendencia</th><th>Última Actualización</th></tr>
+            </thead>
+            <tbody id="forecastBody"><tr class="empty-row"><td colspan="5">Cargando...</td></tr></tbody>
+          </table>
+        </div>
       </div>
     </div>
 

@@ -1,0 +1,403 @@
+<!-- 
+  EJEMPLO DE INTEGRACIÓN: Sistema de Pagos
+  Cómo integrar el modal de pagos en tu e-commerce
+-->
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ejemplo - Sistema de Pagos</title>
+</head>
+<body>
+
+<!-- 
+  ══════════════════════════════════════════════════════════════
+  1. CARRITO DE COMPRAS (Resumen)
+  ══════════════════════════════════════════════════════════════
+-->
+<div class="cart-summary" style="border: 1px solid #ccc; padding: 20px; margin: 20px 0; max-width: 400px;">
+  <h3>Tu Carrito</h3>
+  <div id="cartItems">
+    <div>Producto 1 - $89,990</div>
+    <div>Producto 2 - $149,990</div>
+  </div>
+  <div style="margin-top: 20px; font-weight: bold;">
+    Total: $239,980
+  </div>
+  
+  <!-- BOTÓN PARA ABRIR MODAL DE PAGOS -->
+  <button onclick="openPaymentModal()" style="
+    width: 100%;
+    padding: 12px;
+    margin-top: 20px;
+    background: #27ae60;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    font-weight: bold;
+  ">
+    💳 PROCEDER AL PAGO
+  </button>
+</div>
+
+<!-- 
+  ══════════════════════════════════════════════════════════════
+  2. ESTADOS DE PAGO (Feedback)
+  ══════════════════════════════════════════════════════════════
+-->
+<div id="paymentStatus" style="
+  margin: 20px 0;
+  padding: 15px;
+  border-radius: 4px;
+  display: none;
+">
+  <!-- Se llena dinámicamente -->
+</div>
+
+<!-- 
+  ══════════════════════════════════════════════════════════════
+  3. JAVASCRIPT - Funciones de Ayuda
+  ══════════════════════════════════════════════════════════════
+-->
+<script>
+  // Variables globales
+  let cart = [
+    { name: 'Producto 1', qty: 1, price: 89990, size: 'M' },
+    { name: 'Producto 2', qty: 1, price: 149990, size: 'L' }
+  ];
+
+  let window.customerData = null;
+  let window.selectedPaymentMethod = null;
+  let window.shippingData = { cost: 15000, neighborhood: 'Bogotá' };
+
+  // ──────────────────────────────────────────────────────────
+  // ABRIR MODAL DE PAGOS
+  // ──────────────────────────────────────────────────────────
+  function openPaymentModal() {
+    // 1. Validar carrito
+    if (!cart || cart.length === 0) {
+      alert('❌ El carrito está vacío');
+      return;
+    }
+
+    // 2. Mostrar modal (se asume que existe en el HTML)
+    const overlay = document.getElementById("paymentModalOverlay");
+    const modal = document.getElementById("paymentModal");
+    
+    if (!overlay || !modal) {
+      alert('⚠️ Modal no encontrado en el HTML\n' +
+            'Asegúrate de incluir index.html que tiene el modal de pagos');
+      return;
+    }
+
+    // 3. Mostrar paso 1 (datos del cliente)
+    showPaymentStep(1);
+
+    // 4. Abrir modal
+    overlay.classList.add("open");
+    modal.classList.add("open");
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // CONTINUAR A SELECCIÓN DE MÉTODO
+  // ──────────────────────────────────────────────────────────
+  function continueToPaymentMethod() {
+    // 1. Obtener datos del formulario
+    const name = document.getElementById("customerName").value.trim();
+    const email = document.getElementById("customerEmail").value.trim();
+    const phone = document.getElementById("customerPhone").value.trim();
+    const address = document.getElementById("customerAddress").value.trim();
+    const city = document.getElementById("customerCity").value.trim();
+
+    // 2. Validar
+    if (!name || !email || !phone || !address || !city) {
+      alert('⚠️ Por favor completa todos los campos');
+      return;
+    }
+
+    if (!email.includes("@")) {
+      alert('⚠️ Email inválido');
+      return;
+    }
+
+    if (!phone.match(/\d{10,}/)) {
+      alert('⚠️ Teléfono debe tener al menos 10 dígitos');
+      return;
+    }
+
+    // 3. Guardar datos
+    window.customerData = { name, email, phone, address, city };
+
+    // 4. Pasar al paso 2
+    showPaymentStep(2);
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // SELECCIONAR MÉTODO DE PAGO
+  // ──────────────────────────────────────────────────────────
+  function selectPaymentMethod(methodId) {
+    window.selectedPaymentMethod = methodId;
+
+    if (methodId === "card") {
+      // Si es tarjeta, pedir datos de tarjeta
+      showPaymentStep(3);
+    } else {
+      // Si es otro método, procesar directamente
+      processNonCardPayment(methodId);
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // PROCESAR PAGO CON TARJETA
+  // ──────────────────────────────────────────────────────────
+  async function processPayment() {
+    // 1. Validar datos de tarjeta
+    const cardNumber = document.getElementById("cardNumber").value.replace(/\s/g, "");
+    const cardExpiry = document.getElementById("cardExpiry").value;
+    const cardCVV = document.getElementById("cardCVV").value;
+    const cardName = document.getElementById("cardName").value.trim();
+
+    if (!cardNumber || cardNumber.length < 13) {
+      alert('⚠️ Número de tarjeta inválido');
+      return;
+    }
+
+    if (!cardExpiry.match(/\d{2}\/\d{2}/)) {
+      alert('⚠️ Vencimiento inválido (formato MM/YY)');
+      return;
+    }
+
+    if (!cardCVV || cardCVV.length < 3) {
+      alert('⚠️ CVV inválido');
+      return;
+    }
+
+    // 2. Calcular totales
+    const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+    const shippingCost = window.shippingData?.cost || 0;
+    const total = subtotal + shippingCost;
+
+    // 3. Crear objeto de pago
+    const paymentData = {
+      id: "PAY" + Date.now().toString(36).toUpperCase(),
+      timestamp: new Date().toISOString(),
+      customer: window.customerData,
+      method: "card",
+      methodDetails: {
+        cardNumber: "**** **** **** " + cardNumber.slice(-4),
+        cardName: cardName,
+        cardBrand: guessCardBrand(cardNumber)
+      },
+      subtotal: subtotal,
+      shipping: shippingCost,
+      total: total,
+      items: cart.map((i) => ({ 
+        name: i.name, 
+        qty: i.qty, 
+        price: i.price, 
+        size: i.size || 'M' 
+      })),
+      status: "pending_verification",
+      reference: "WIN-ORDER-" + Date.now().toString(36).toUpperCase()
+    };
+
+    // 4. Enviar al servidor
+    try {
+      alert('⏳ Procesando pago...');
+
+      const res = await fetch('/api/payments', {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "x-api-key": "dev-api-key"
+        },
+        body: JSON.stringify(paymentData)
+      });
+
+      const result = await res.json();
+
+      if (res.ok) {
+        // ✓ Pago exitoso
+        alert(`✅ ¡Pago aceptado!\n\n` +
+              `Referencia: ${paymentData.reference}\n` +
+              `Total: $${total.toLocaleString('es-CO')}\n\n` +
+              `Te enviaremos confirmación a ${window.customerData.email}`);
+
+        // Limpiar carrito
+        cart = [];
+
+        // Cerrar modal
+        closePaymentModal();
+
+      } else {
+        // ✗ Error
+        alert('❌ Error: ' + (result.error || 'Error desconocido'));
+      }
+    } catch (err) {
+      alert('❌ Error de conexión: ' + err.message);
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // PROCESAR PAGO SIN TARJETA
+  // ──────────────────────────────────────────────────────────
+  async function processNonCardPayment(methodId) {
+    const methods = {
+      nequi: "Nequi",
+      daviplata: "Daviplata",
+      pse: "PSE/Transferencia",
+      cash: "Efectivo"
+    };
+
+    // 1. Calcular totales
+    const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+    const shippingCost = window.shippingData?.cost || 0;
+    const total = subtotal + shippingCost;
+
+    // 2. Crear objeto de pago
+    const paymentData = {
+      id: "PAY" + Date.now().toString(36).toUpperCase(),
+      timestamp: new Date().toISOString(),
+      customer: window.customerData,
+      method: methodId,
+      methodName: methods[methodId],
+      subtotal: subtotal,
+      shipping: shippingCost,
+      total: total,
+      items: cart.map((i) => ({ 
+        name: i.name, 
+        qty: i.qty, 
+        price: i.price, 
+        size: i.size || 'M' 
+      })),
+      status: "waiting_confirmation",
+      reference: "WIN-ORDER-" + Date.now().toString(36).toUpperCase()
+    };
+
+    // 3. Enviar al servidor
+    try {
+      alert('⏳ Registrando pedido...');
+
+      const res = await fetch('/api/payments', {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "x-api-key": "dev-api-key"
+        },
+        body: JSON.stringify(paymentData)
+      });
+
+      const result = await res.json();
+
+      if (res.ok) {
+        // ✓ Pedido registrado
+        const instructions = {
+          nequi: "Te enviaremos datos de Nequi por WhatsApp",
+          daviplata: "Te enviaremos datos de Daviplata por WhatsApp",
+          pse: "Te enviaremos enlace de PSE por WhatsApp",
+          cash: "Te contactaremos para coordinar el pago"
+        };
+
+        alert(`✅ ¡Pedido creado!\n\n` +
+              `Referencia: ${paymentData.reference}\n` +
+              `Total: $${total.toLocaleString('es-CO')}\n\n` +
+              `${instructions[methodId]}\n` +
+              `WhatsApp: ${window.customerData.phone}`);
+
+        // Limpiar carrito
+        cart = [];
+
+        // Cerrar modal
+        closePaymentModal();
+
+      } else {
+        alert('❌ Error: ' + (result.error || 'Error desconocido'));
+      }
+    } catch (err) {
+      alert('❌ Error de conexión: ' + err.message);
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // FUNCIONES AUXILIARES
+  // ──────────────────────────────────────────────────────────
+  
+  function closePaymentModal() {
+    const overlay = document.getElementById("paymentModalOverlay");
+    const modal = document.getElementById("paymentModal");
+    if (overlay) overlay.classList.remove("open");
+    if (modal) modal.classList.remove("open");
+  }
+
+  function showPaymentStep(step) {
+    document.getElementById("paymentStep1").style.display = 
+      step === 1 ? "block" : "none";
+    document.getElementById("paymentStep2").style.display = 
+      step === 2 ? "block" : "none";
+    document.getElementById("paymentStep3").style.display = 
+      step === 3 ? "block" : "none";
+  }
+
+  function guessCardBrand(cardNumber) {
+    const patterns = {
+      visa: /^4[0-9]{12}(?:[0-9]{3})?$/,
+      mastercard: /^5[1-5][0-9]{14}$/,
+      amex: /^3[47][0-9]{13}$/,
+    };
+    
+    for (const [brand, pattern] of Object.entries(patterns)) {
+      if (pattern.test(cardNumber)) return brand.toUpperCase();
+    }
+    return "UNKNOWN";
+  }
+
+  function formatCardNumber(input) {
+    let value = input.value.replace(/\s/g, "");
+    let formatted = value.match(/.{1,4}/g)?.join(" ") || value;
+    input.value = formatted;
+  }
+
+  function formatExpiry(input) {
+    let value = input.value.replace(/\D/g, "");
+    if (value.length >= 2) {
+      value = value.slice(0, 2) + "/" + value.slice(2, 4);
+    }
+    input.value = value;
+  }
+</script>
+
+<!-- 
+  ══════════════════════════════════════════════════════════════
+  4. NOTAS IMPORTANTES
+  ══════════════════════════════════════════════════════════════
+
+  Este archivo es un EJEMPLO de cómo integrar el sistema de pagos.
+
+  Para usar completamente:
+  1. Copia el HTML del modal desde index.html
+  2. Copia los estilos CSS desde styles.css
+  3. Copia las funciones JavaScript desde app.js
+  4. Asegúrate de que el servidor esté corriendo en http://localhost:3000
+
+  El modal tiene 3 pasos:
+  - Paso 1: Datos del cliente
+  - Paso 2: Selección de método de pago
+  - Paso 3: Datos de tarjeta (si elige tarjeta)
+
+  Métodos de pago disponibles:
+  - card (Tarjeta de crédito/débito)
+  - nequi (Nequi)
+  - daviplata (Daviplata)
+  - pse (PSE/Transferencia)
+  - cash (Efectivo)
+
+  Todos los datos se envían a: POST /api/payments
+
+-->
+
+</body>
+</html>

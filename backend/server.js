@@ -57,6 +57,18 @@ app.use(cors({
 app.use(bodyParser.json({ limit: '15mb' }));
 app.use(bodyParser.urlencoded({ limit: '15mb', extended: true }));
 
+/* ── Error handler para bodyParser ──────────────────────– */
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && 'body' in err) {
+    console.warn('⚠️ JSON Parse Error:', err.message);
+    return res.status(400).json({ 
+      error: 'JSON inválido en el body',
+      message: err.message 
+    });
+  }
+  next(err);
+});
+
 /* ── Seguridad de archivos sensibles ────────────────────── */
 const CLIENT_ROOT = path.join(__dirname, '..');
 const BLOCKED_EXTENSIONS = ['.db', '.sqlite', '.env', '.log'];
@@ -462,10 +474,667 @@ app.get('/api/stats', requireAuth, (req, res) => {
 });
 
 /* ═══════════════════════════════════════════════════════════
-   RUTA — AUTH
+   RUTAS — ANALYTICS AVANZADO (Seguimiento de Ventas)
+   ═══════════════════════════════════════════════════════════ */
+
+// GET /api/analytics/sales-by-channel — Ventas por canal (online/fisica)
+app.get('/api/analytics/sales-by-channel', requireAuth, (req, res) => {
+  db.all(`
+    SELECT 
+      COALESCE(channel, 'fisica') AS channel,
+      COUNT(*) AS total_sales,
+      SUM(total) AS total_revenue,
+      AVG(total) AS avg_sale,
+      MIN(total) AS min_sale,
+      MAX(total) AS max_sale
+    FROM sales
+    GROUP BY channel
+    ORDER BY total_revenue DESC
+  `, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+// GET /api/analytics/sales-by-product — Ventas por producto
+app.get('/api/analytics/sales-by-product', requireAuth, (req, res) => {
+  db.all(`
+    SELECT 
+      si.product_name AS name,
+      SUM(si.qty) AS qty_sold,
+      COUNT(DISTINCT si.sale_id) AS times_sold,
+      SUM(si.qty * si.price) AS total_revenue,
+      AVG(si.price) AS avg_price,
+      MAX(si.price) AS max_price,
+      MIN(si.price) AS min_price
+    FROM sale_items si
+    GROUP BY si.product_name
+    ORDER BY total_revenue DESC
+  `, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+// GET /api/analytics/sales-timeline — Ventas agrupadas por día/mes
+app.get('/api/analytics/sales-timeline', requireAuth, (req, res) => {
+  const { period = 'day' } = req.query; // day, week, month
+  
+  let dateFormat = '%Y-%m-%d'; // por defecto día
+  if (period === 'week') dateFormat = '%Y-W%W';
+  if (period === 'month') dateFormat = '%Y-%m';
+
+  db.all(`
+    SELECT 
+      strftime('${dateFormat}', timestamp) AS period,
+      COUNT(*) AS sales_count,
+      SUM(total) AS total_revenue,
+      AVG(total) AS avg_sale,
+      MIN(total) AS min_sale,
+      MAX(total) AS max_sale,
+      COUNT(DISTINCT channel) AS channels
+    FROM sales
+    GROUP BY period
+    ORDER BY period DESC
+    LIMIT 30
+  `, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+// GET /api/analytics/inventory-status — Estado del inventario
+app.get('/api/analytics/inventory-status', requireAuth, (req, res) => {
+  db.all(`
+    SELECT 
+      p.id,
+      p.name,
+      p.price,
+      p.cost,
+      ROUND((p.price - p.cost) / p.price * 100) AS margin_percent,
+      SUM(i.qty) AS total_stock,
+      COUNT(DISTINCT i.size) AS size_variants,
+      (SELECT COUNT(*) FROM sale_items WHERE product_name = p.name) AS times_sold,
+      COALESCE((SELECT SUM(qty) FROM sale_items WHERE product_name = p.name), 0) AS units_sold
+    FROM products p
+    LEFT JOIN inventory i ON p.id = i.product_id
+    GROUP BY p.id
+    ORDER BY total_stock ASC
+  `, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+// GET /api/analytics/top-products — Top 10 productos más vendidos
+app.get('/api/analytics/top-products', requireAuth, (req, res) => {
+  db.all(`
+    SELECT 
+      si.product_name AS name,
+      SUM(si.qty) AS qty_sold,
+      COUNT(DISTINCT si.sale_id) AS sale_count,
+      ROUND(SUM(si.qty * si.price)) AS revenue,
+      ROUND(SUM(si.qty * si.price) / COUNT(DISTINCT si.sale_id)) AS revenue_per_sale
+    FROM sale_items si
+    GROUP BY si.product_name
+    ORDER BY qty_sold DESC
+    LIMIT 10
+  `, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+// GET /api/analytics/low-stock — Productos con bajo stock
+app.get('/api/analytics/low-stock', requireAuth, (req, res) => {
+  const threshold = req.query.threshold || 5;
+  
+  db.all(`
+    SELECT 
+      p.id,
+      p.name,
+      p.sku,
+      SUM(i.qty) AS total_stock,
+      GROUP_CONCAT(i.size || ':' || i.qty, ' | ') AS stock_by_size
+    FROM products p
+    LEFT JOIN inventory i ON p.id = i.product_id
+    GROUP BY p.id
+    HAVING total_stock <= ? AND total_stock > 0
+    ORDER BY total_stock ASC
+  `, [threshold], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+// GET /api/analytics/summary — Resumen general de analytics
+app.get('/api/analytics/summary', requireAuth, (req, res) => {
+  const from = req.query.from || '2024-01-01';
+  const to = req.query.to || new Date().toISOString().split('T')[0];
+
+  db.get(`
+    SELECT 
+      (SELECT COUNT(*) FROM sales WHERE timestamp >= ? AND timestamp <= ?) AS total_sales,
+      (SELECT SUM(total) FROM sales WHERE timestamp >= ? AND timestamp <= ?) AS total_revenue,
+      (SELECT COUNT(DISTINCT channel) FROM sales WHERE timestamp >= ? AND timestamp <= ?) AS channels_active,
+      (SELECT COUNT(DISTINCT product_name) FROM sale_items 
+       WHERE sale_id IN (SELECT id FROM sales WHERE timestamp >= ? AND timestamp <= ?)) AS unique_products_sold,
+      (SELECT SUM(qty) FROM sale_items 
+       WHERE sale_id IN (SELECT id FROM sales WHERE timestamp >= ? AND timestamp <= ?)) AS total_units_sold,
+      (SELECT COALESCE(AVG(total), 0) FROM sales WHERE timestamp >= ? AND timestamp <= ?) AS avg_sale_value,
+      (SELECT COUNT(*) FROM products) AS total_products_catalog,
+      (SELECT COUNT(DISTINCT size) FROM inventory) AS total_size_variants
+  `, [
+    from, to, from, to, from, to,
+    from, to, from, to, from, to
+  ], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(row || {});
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   RUTAS — LOGÍSTICA (Shipping Options)
+   ═══════════════════════════════════════════════════════════ */
+
+// GET /api/shipping-options — Opciones de envío disponibles
+app.get('/api/shipping-options', requireApiKey, (req, res) => {
+  db.all(`SELECT * FROM shipping_options WHERE enabled = 1 ORDER BY priority DESC`, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+// GET /api/orders/:id — Obtener detalles de un pedido
+app.get('/api/orders/:id', requireApiKey, (req, res) => {
+  db.get(`SELECT * FROM orders WHERE id = ?`, [req.params.id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: 'Pedido no encontrado' });
+    res.json(row);
+  });
+});
+
+// POST /api/orders — Crear nuevo pedido con logística
+app.post('/api/orders', (req, res) => {
+  const { sale_id, customer_email, customer_phone, shipping_address, shipping_method, shipping_cost } = req.body;
+  
+  if (!sale_id || !shipping_method) {
+    return res.status(400).json({ error: 'sale_id y shipping_method requeridos' });
+  }
+
+  const orderId = 'ORD-' + Date.now().toString(36).toUpperCase();
+  
+  db.run(`
+    INSERT INTO orders (id, sale_id, customer_email, customer_phone, shipping_address, shipping_method, shipping_cost, order_status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+  `, [orderId, sale_id, customer_email, customer_phone, shipping_address, shipping_method, shipping_cost || 0], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true, orderId, message: 'Pedido creado exitosamente' });
+  });
+});
+
+// PUT /api/orders/:id/tracking — Actualizar número de seguimiento
+app.put('/api/orders/:id/tracking', requireAuth, (req, res) => {
+  const { tracking_number, order_status } = req.body;
+  
+  db.run(`
+    UPDATE orders SET tracking_number = ?, order_status = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `, [tracking_number, order_status || 'shipped', req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true, message: 'Pedido actualizado' });
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   RUTAS — PAGOS (Payment Processing)
+   ═══════════════════════════════════════════════════════════ */
+
+// POST /api/payments — Registrar pago de cliente
+app.post('/api/payments', (req, res) => {
+  try {
+    const paymentData = req.body || {};
+    const { 
+      id, 
+      timestamp, 
+      customer = {}, 
+      method, 
+      methodName,
+      total, 
+      items = [],
+      status = "pending_verification",
+      reference,
+      shipping_address
+    } = paymentData;
+
+    if (!customer.name || !customer.email || !customer.phone) {
+      return res.status(400).json({ error: 'Datos de cliente incompletos' });
+    }
+
+    if (!method || !total) {
+      return res.status(400).json({ error: 'Método de pago y total requeridos' });
+    }
+
+    // Crear o actualizar perfil de clientsociale
+    const customerId = 'CUST-' + customer.email.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 20);
+    
+    db.run(`
+      INSERT OR IGNORE INTO customer_profiles 
+      (id, name, email, phone, country, vip_status, total_spent, purchase_count)
+      VALUES (?, ?, ?, ?, 'CO', 'regular', 0, 0)
+    `, [customerId, customer.name, customer.email, customer.phone]);
+
+    // Registrar la venta
+    const saleId = id || 'SALE-' + Date.now().toString(36).toUpperCase();
+    const saleData = {
+      id: saleId,
+      timestamp: timestamp || new Date().toISOString(),
+      vendor: 'Tienda Online',
+      client: customer.name,
+      method: method,
+      channel: 'online',
+      subtotal: paymentData.subtotal || 0,
+      discount: 0,
+      total: total,
+      payment_method: method,
+      payment_status: status,
+      customer_email: customer.email,
+      customer_phone: customer.phone,
+      shipping_address: shipping_address || customer.address,
+      reference_number: reference
+    };
+
+    db.run(`
+      INSERT INTO sales 
+      (id, timestamp, vendor, client, method, channel, subtotal, discount, total, 
+       payment_method, payment_status, customer_email, customer_phone, shipping_address, reference_number)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      saleData.id,
+      saleData.timestamp,
+      saleData.vendor,
+      saleData.client,
+      saleData.method,
+      saleData.channel,
+      saleData.subtotal,
+      saleData.discount,
+      saleData.total,
+      saleData.payment_method,
+      saleData.payment_status,
+      saleData.customer_email,
+      saleData.customer_phone,
+      saleData.shipping_address,
+      saleData.reference_number
+    ], function(err) {
+      if (err) {
+        console.error('Error inserting sale:', err);
+        return res.status(500).json({ error: 'Error al procesar pago: ' + err.message });
+      }
+
+      // Registrar items de venta
+      if (items && items.length > 0) {
+        items.forEach(item => {
+          db.run(`
+            INSERT INTO sale_items (sale_id, product_name, qty, price)
+            VALUES (?, ?, ?, ?)
+          `, [saleData.id, item.name, item.qty, item.price]);
+        });
+      }
+
+      // Actualizar inventario
+      if (items && items.length > 0) {
+        items.forEach(item => {
+          db.run(`
+            UPDATE inventory SET qty_sold = qty_sold + ? 
+            WHERE product_name = ?
+          `, [item.qty, item.name]);
+        });
+      }
+
+      // Respuesta del pago
+      const response = {
+        success: true,
+        payment: {
+          id: saleData.id,
+          reference: reference,
+          status: status,
+          method: method,
+          methodName: methodName || method,
+          amount: total,
+          currency: 'COP',
+          customer: {
+            name: customer.name,
+            email: customer.email,
+            phone: customer.phone
+          },
+          timestamp: saleData.timestamp,
+          items: items.length,
+          message: method === 'card' 
+            ? 'Pago con tarjeta procesado. Recibirás confirmación por email.'
+            : 'Pedido registrado. Te enviaremos instrucciones de pago por WhatsApp.'
+        }
+      };
+
+      res.status(201).json(response);
+    });
+  } catch (err) {
+    console.error('Payment processing error:', err);
+    res.status(500).json({ error: 'Error al procesar pago: ' + err.message });
+  }
+});
+
+// GET /api/payments/:reference — Obtener detalles de pago
+app.get('/api/payments/:reference', (req, res) => {
+  db.get(`
+    SELECT * FROM sales WHERE reference_number = ?
+  `, [req.params.reference], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: 'Pago no encontrado' });
+    res.json(row);
+  });
+});
+
+// GET /api/payments/customer/:email — Obtener pagos de un cliente  
+app.get('/api/payments/customer/:email', (req, res) => {
+  db.all(`
+    SELECT * FROM sales WHERE customer_email = ? ORDER BY timestamp DESC
+  `, [req.params.email], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   RUTAS — VIP CUSTOMERS (Análisis de clientes)
+   ═══════════════════════════════════════════════════════════ */
+
+// GET /api/customers/vip — Listar clientes VIP
+app.get('/api/customers/vip', requireAuth, (req, res) => {
+  db.all(`
+    SELECT * FROM customer_profiles 
+    WHERE vip_status = 'vip' 
+    ORDER BY total_spent DESC
+  `, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+// GET /api/customers/segment — Segmentación de clientes
+app.get('/api/customers/segment', requireAuth, (req, res) => {
+  db.all(`
+    SELECT 
+      vip_status,
+      COUNT(*) AS count,
+      AVG(total_spent) AS avg_spent,
+      SUM(total_spent) AS total_spent,
+      AVG(total_orders) AS avg_orders
+    FROM customer_profiles
+    GROUP BY vip_status
+  `, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+// POST /api/customers/sync — Sincronizar clientes desde ventas
+app.post('/api/customers/sync', requireAuth, (req, res) => {
+  // Crear/actualizar perfiles desde tabla de ventas
+  db.run(`
+    INSERT OR REPLACE INTO customer_profiles (
+      id, email, name, phone, total_spent, total_orders, last_purchase
+    )
+    SELECT 
+      LOWER(REPLACE(client, ' ', '_')) || '_' || random(),
+      client,
+      client,
+      NULL,
+      (SELECT COALESCE(SUM(total), 0) FROM sales WHERE client = cp.email),
+      (SELECT COUNT(*) FROM sales WHERE client = cp.email),
+      (SELECT MAX(timestamp) FROM sales WHERE client = cp.email)
+    FROM (SELECT DISTINCT client as email FROM sales) cp
+  `, function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    
+    // Actualizar VIP status (gasto > $500.000)
+    db.run(`
+      UPDATE customer_profiles SET vip_status = 'vip' WHERE total_spent > 500000
+    `, (err) => {
+      if (err) console.error('Error updating VIP status:', err);
+      res.json({ success: true, message: 'Clientes sincronizados' });
+    });
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   RUTAS — REORDEN AUTOMÁTICO
+   ═══════════════════════════════════════════════════════════ */
+
+// GET /api/reorder-rules — Obtener reglas de reorden
+app.get('/api/reorder-rules', requireAuth, (req, res) => {
+  db.all(`
+    SELECT rr.*, p.name, p.sku, SUM(i.qty) as current_stock
+    FROM reorder_rules rr
+    JOIN products p ON rr.product_id = p.id
+    LEFT JOIN inventory i ON p.id = i.product_id
+    WHERE rr.enabled = 1
+    GROUP BY rr.id
+  `, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+// POST /api/reorder-rules — Crear regla de reorden
+app.post('/api/reorder-rules', requireAuth, (req, res) => {
+  try {
+    const { product_id, min_stock, qty_to_order, reorder_cost } = req.body || {};
+    
+    if (!product_id || !min_stock || !qty_to_order) {
+      return res.status(400).json({ error: 'product_id, min_stock y qty_to_order requeridos' });
+    }
+
+    const ruleId = 'REOR-' + Date.now().toString(36).toUpperCase();
+    
+    db.run(`
+      INSERT INTO reorder_rules (id, product_id, min_stock, qty_to_order, reorder_cost, enabled)
+      VALUES (?, ?, ?, ?, ?, 1)
+    `, [ruleId, product_id, min_stock, qty_to_order, reorder_cost || 0], function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true, ruleId, message: 'Regla de reorden creada' });
+    });
+  } catch(e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// POST /api/reorder-check — Verificar y ejecutar reorden automático
+app.post('/api/reorder-check', requireAuth, (req, res) => {
+  db.all(`
+    SELECT rr.*, SUM(i.qty) as current_stock
+    FROM reorder_rules rr
+    JOIN inventory i ON rr.product_id = i.product_id
+    WHERE rr.enabled = 1
+    GROUP BY rr.product_id
+    HAVING current_stock <= rr.min_stock
+  `, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    
+    const reorders = rows || [];
+    res.json({
+      needs_reorder: reorders.length > 0,
+      reorders: reorders,
+      message: `${reorders.length} producto(s) necesitan reorden`
+    });
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   RUTAS — PREDICCIÓN DE DEMANDA (ML Simple)
+   ═══════════════════════════════════════════════════════════ */
+
+// GET /api/demand-forecast — Predicción de demanda
+app.get('/api/demand-forecast', requireAuth, (req, res) => {
+  db.all(`
+    SELECT 
+      df.*,
+      p.name,
+      p.sku,
+      (SELECT AVG(qty) FROM sale_items WHERE product_name = p.name) as avg_monthly
+    FROM demand_forecast df
+    JOIN products p ON df.product_id = p.id
+    ORDER BY df.last_updated DESC
+  `, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+// POST /api/demand-forecast/calculate — Calcular predicción para todos o un producto
+app.post('/api/demand-forecast/calculate', requireAuth, (req, res) => {
+  try {
+    const { product_id, period = 'month' } = req.body || {};
+
+    if (product_id) {
+      // Calcular para un producto específico
+      db.get(`
+        SELECT 
+          COUNT(*) as sales_count,
+          AVG(qty) as avg_qty,
+          SUM(qty) as total_qty
+        FROM sale_items 
+        WHERE product_name IN (SELECT name FROM products WHERE id = ?)
+      `, [product_id], (err, stats) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        const avgQty = stats?.avg_qty || 5;
+        const confidence = Math.min(100, (stats?.sales_count || 1) * 10);
+        const predictedQty = Math.round(avgQty * 1.1);
+        const trend = (avgQty > 5) ? 'up' : 'stable';
+
+        const forecastId = 'FORE-' + Date.now().toString(36).toUpperCase();
+        db.run(`
+          INSERT OR REPLACE INTO demand_forecast (id, product_id, predicted_qty, confidence_score, trend, last_updated)
+          VALUES (?, ?, ?, ?, ?, datetime('now'))
+        `, [forecastId, product_id, predictedQty, confidence, trend], (err) => {
+          if (err) return res.status(500).json({ error: err.message });
+          res.json({ success: true, forecast: { product_id, predicted_qty: predictedQty, confidence_score: confidence, trend } });
+        });
+      });
+    } else {
+      // Calcular para todos los productos
+      db.all(`
+        SELECT DISTINCT si.product_name, p.id
+        FROM sale_items si
+        LEFT JOIN products p ON p.name = si.product_name
+      `, [], (err, products) => {
+        if (err) return res.status(500).json({ error: err.message });
+        let processed = 0;
+        
+        products.forEach(prod => {
+          db.get(`
+            SELECT COUNT(*) as cnt, AVG(qty) as avg_qty
+            FROM sale_items WHERE product_name = ?
+          `, [prod.product_name], (err, stats) => {
+            if (!err && prod.id) {
+              const avgQty = stats?.avg_qty || 5;
+              const confidence = Math.min(100, (stats?.cnt || 1) * 10);
+              const predictedQty = Math.round(avgQty * 1.1);
+              const trend = (avgQty > 5) ? 'up' : 'stable';
+              
+              db.run(`
+                INSERT OR REPLACE INTO demand_forecast (id, product_id, predicted_qty, confidence_score, trend, last_updated)
+                VALUES (?, ?, ?, ?, ?, datetime('now'))
+              `, ['FORE-' + Date.now().toString(36).toUpperCase() + '-' + prod.id, prod.id, predictedQty, confidence, trend], () => {
+                processed++;
+                if (processed === products.length) {
+                  res.json({ success: true, message: `Predicciones calculadas para ${processed} productos` });
+                }
+              });
+            }
+          });
+        });
+        
+        if (products.length === 0) {
+          res.json({ success: true, message: 'No hay productos para calcular' });
+        }
+      });
+    }
+  } catch(e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   RUTAS — EXPORTACIÓN (Reports)
+   ═══════════════════════════════════════════════════════════ */
+
+// GET /api/reports/sales-csv — Exportar ventas a CSV
+app.get('/api/reports/sales-csv', requireAuth, (req, res) => {
+  const { from, to } = req.query;
+  
+  let sql = `SELECT 
+    s.id, s.timestamp, s.channel, s.vendor, s.client, s.method, 
+    s.subtotal, s.discount, s.total
+  FROM sales s`;
+  const args = [];
+  
+  const filters = [];
+  if (from) { filters.push('s.timestamp >= ?'); args.push(from); }
+  if (to) { filters.push('s.timestamp <= ?'); args.push(to); }
+  
+  if (filters.length) sql += ' WHERE ' + filters.join(' AND ');
+  sql += ' ORDER BY s.timestamp DESC';
+
+  db.all(sql, args, (err, rows) => {
+    if (err) return res.status(500).send('Error al generar reporte');
+
+    const csv = [
+      ['ID', 'Fecha', 'Canal', 'Vendedor', 'Cliente', 'Método', 'Subtotal', 'Descuento', 'Total'].join(','),
+      ...(rows || []).map(r => [
+        r.id, r.timestamp, r.channel, r.vendor, r.client, r.method, 
+        r.subtotal, r.discount, r.total
+      ].join(','))
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=reporte-ventas.csv');
+    res.send(csv);
+  });
+});
+
+// GET /api/reports/inventory-csv — Exportar inventario a CSV
+app.get('/api/reports/inventory-csv', requireAuth, (req, res) => {
+  db.all(`
+    SELECT p.id, p.name, p.sku, p.price, p.cost, 
+           GROUP_CONCAT(i.size || ':' || i.qty, '|') as stock_by_size
+    FROM products p
+    LEFT JOIN inventory i ON p.id = i.product_id
+    GROUP BY p.id
+    ORDER BY p.name
+  `, [], (err, rows) => {
+    if (err) return res.status(500).send('Error al generar reporte');
+
+    const csv = [
+      ['ID', 'Nombre', 'SKU', 'Precio', 'Costo', 'Stock por Talla'].join(','),
+      ...(rows || []).map(r => [
+        r.id, r.name, r.sku, r.price, r.cost, r.stock_by_size || '-'
+      ].join(','))
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=reporte-inventario.csv');
+    res.send(csv);
+  });
+});
+
+/* ── RUTA — AUTH
    ═══════════════════════════════════════════════════════════ */
 app.post('/api/login', (req, res) => {
+  console.log('📨 /api/login body:', req.body);
+  console.log('📨 /api/login body type:', typeof req.body);
   const { user, pass } = req.body || {};
+  console.log('📨 user:', user, 'pass:', pass);
   if (user === ADMIN_USER && passwordMatches(pass)) {
     const token = jwt.sign({ sub: user, role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
     return res.json({ token, user, role: 'admin' });
@@ -568,10 +1237,13 @@ app.get(/(.*)/, (req, res, next) => {
   res.sendFile(path.join(CLIENT_ROOT, 'index.html'));
 });
 
+
 /* ── Manejo de errores global ────────────────────────────── */
 app.use((err, req, res, _next) => {
-  console.error('❌ Error no controlado:', err.message);
-  res.status(500).json({ error: 'Error interno del servidor' });
+  console.error('❌ Error:', err.message);
+  console.error('   Path:', req.path);
+  console.error('   Method:', req.method);
+  res.status(err.status || 500).json({ error: 'Error interno del servidor', message: err.message });
 });
 
 /* ── Arrancar servidor ───────────────────────────────────── */

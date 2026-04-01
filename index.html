@@ -67,6 +67,7 @@
         <li><a href="#productos">Colección</a></li>
         <li><a href="#categorias">Categorías</a></li>
         <li><a href="#destacados">Destacados</a></li>
+        <li><a href="#misventas">Mis Ventas</a></li>
         <li><a href="#contacto">Contacto</a></li>
       </ul>
       <div class="nav-actions">
@@ -1339,25 +1340,267 @@
       id="paymentModalOverlay"
       onclick="closePaymentModal()"
     ></div>
-    <div class="adm-modal" id="paymentModal" style="max-width: 480px">
+    <div class="adm-modal payment-modal" id="paymentModal" style="max-width: 560px">
       <div class="modal-header">
-        <h3>Selecciona tu método de pago</h3>
+        <h3 id="paymentTitle">Selecciona tu método de pago</h3>
         <button class="adm-close" onclick="closePaymentModal()">✕</button>
       </div>
+      <div class="modal-body" style="overflow-y: auto; max-height: 600px">
+        <!-- PASO 1: Datos del Cliente -->
+        <div id="paymentStep1" class="payment-step active">
+          <p style="font-size: 13px; color: var(--gray-text); margin-bottom: 20px">
+            📋 Completa tus datos para procesar el pago
+          </p>
+          <form id="customerForm" style="display: flex; flex-direction: column; gap: 12px">
+            <div>
+              <label style="font-size: 12px; color: var(--gray-text)">Nombre Completo *</label>
+              <input type="text" id="customerName" placeholder="Juan Pérez" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px;">
+            </div>
+            <div>
+              <label style="font-size: 12px; color: var(--gray-text)">Correo Electrónico *</label>
+              <input type="email" id="customerEmail" placeholder="juan@example.com" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px;">
+            </div>
+            <div>
+              <label style="font-size: 12px; color: var(--gray-text)">Teléfono / WhatsApp *</label>
+              <input type="tel" id="customerPhone" placeholder="+57 3XX XXX XXXX" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px;">
+            </div>
+            <div>
+              <label style="font-size: 12px; color: var(--gray-text)">Dirección de Entrega *</label>
+              <input type="text" id="customerAddress" placeholder="Calle 123 #45-67, Apto 8, Bogotá" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px;">
+            </div>
+            <div>
+              <label style="font-size: 12px; color: var(--gray-text)">Ciudad / Departamento *</label>
+              <input type="text" id="customerCity" placeholder="Bogotá, D.C." required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px;">
+            </div>
+            <button type="button" class="adm-btn" onclick="continueToPaymentMethod()" style="margin-top: 10px">
+              CONTINUAR AL PAGO →
+            </button>
+          </form>
+        </div>
+
+        <!-- PASO 2: Método de Pago -->
+        <div id="paymentStep2" class="payment-step" style="display: none">
+          <p style="font-size: 13px; color: var(--gray-text); margin-bottom: 20px">
+            💳 Elige cómo deseas pagar
+          </p>
+          <div class="pay-methods-grid" id="checkoutPayMethods">
+            <!-- Se renderizan dinámicamente desde JS -->
+          </div>
+        </div>
+
+        <!-- PASO 3: TARJETA DE CRÉDITO/DÉBITO -->
+        <div id="paymentStep3" class="payment-step" style="display: none">
+          <p style="font-size: 13px; color: var(--gray-text); margin-bottom: 20px">
+            💳 Datos de tu tarjeta de crédito/débito
+          </p>
+          <form id="cardForm" style="display: flex; flex-direction: column; gap: 12px">
+            <div>
+              <label style="font-size: 12px; color: var(--gray-text)">Número de Tarjeta *</label>
+              <input type="text" id="cardNumber" placeholder="4532 1234 5678 9010" maxlength="23" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px; letter-spacing: 2px; font-family: monospace" oninput="formatCardNumber(this)">
+              <small id="cardBrandInfo" style="display: block; margin-top: 6px; color: #3498db; font-size: 11px"></small>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">
+              <div>
+                <label style="font-size: 12px; color: var(--gray-text)">Vencimiento (MM/YY) *</label>
+                <input type="text" id="cardExpiry" placeholder="12/26" maxlength="5" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px; font-family: monospace" oninput="formatExpiry(this)">
+              </div>
+              <div>
+                <label style="font-size: 12px; color: var(--gray-text)">CVV *</label>
+                <input type="text" id="cardCVV" placeholder="***" maxlength="4" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px; font-family: monospace" oninput="formatCVV(this)">
+              </div>
+            </div>
+            <div>
+              <label style="font-size: 12px; color: var(--gray-text)">Nombre en la Tarjeta *</label>
+              <input type="text" id="cardName" placeholder="JUAN PEREZ" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px; text-transform: uppercase">
+            </div>
+            <div>
+              <label style="font-size: 12px; color: var(--gray-text)">Documento de Identidad *</label>
+              <input type="text" id="cardDocNumber" placeholder="1234567890" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px">
+            </div>
+            <div style="background: rgba(52,152,219,0.1); border-left: 3px solid #3498db; padding: 12px; border-radius: 4px; font-size: 12px; color: var(--gray-text)">
+              🔐 Tus datos están encriptados. No guardamos información de tarjeta en nuestros servidores.
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+              <button type="button" class="adm-btn-ghost" onclick="backToPaymentMethod()">← ATRÁS</button>
+              <button type="button" class="adm-btn" onclick="processPayment()" style="background: #27ae60">
+                ✓ PAGAR
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- PASO 3: PSE / TRANSFERENCIA BANCARIA -->
+        <div id="paymentStep3PSE" class="payment-step" style="display: none">
+          <p style="font-size: 13px; color: var(--gray-text); margin-bottom: 20px">
+            🏦 Datos para Transferencia Bancaria / PSE
+          </p>
+          <form id="pseForm" style="display: flex; flex-direction: column; gap: 12px">
+            <div>
+              <label style="font-size: 12px; color: var(--gray-text)">Banco *</label>
+              <select id="pseBank" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px">
+                <option value="">Selecciona tu banco...</option>
+                <option value="bancolombia">Bancolombia</option>
+                <option value="davivienda">Davivienda</option>
+                <option value="bbva">BBVA</option>
+                <option value="santander">Santander</option>
+                <option value="scotiabank">ScotiaBank</option>
+                <option value="occidente">Banco de Occidente</option>
+                <option value="itau">Itaú</option>
+                <option value="pichincha">Pichincha</option>
+                <option value="otros">Otro banco</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 12px; color: var(--gray-text)">Tipo de Documento *</label>
+              <select id="pseDocType" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px">
+                <option value="">Selecciona tipo...</option>
+                <option value="cc">Cédula de Ciudadanía (CC)</option>
+                <option value="ce">Cédula de Extranjería (CE)</option>
+                <option value="pasaporte">Pasaporte</option>
+                <option value="nit">NIT</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 12px; color: var(--gray-text)">Número de Documento *</label>
+              <input type="text" id="pseDocNumber" placeholder="1234567890" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px">
+            </div>
+            <div style="background: rgba(30,144,255,0.1); border-left: 3px solid #1e90ff; padding: 12px; border-radius: 4px; font-size: 12px; color: var(--gray-text)">
+              ℹ️ Te enviaremos por WhatsApp un enlace de PSE seguro o datos para transferencia bancaria directa.
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+              <button type="button" class="adm-btn-ghost" onclick="backToPaymentMethod()">← ATRÁS</button>
+              <button type="button" class="adm-btn" onclick="processPaymentPSE()" style="background: #1e90ff">
+                → CONTINUAR
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- PASO 3: NEQUI -->
+        <div id="paymentStep3Nequi" class="payment-step" style="display: none">
+          <p style="font-size: 13px; color: var(--gray-text); margin-bottom: 20px">
+            📱 Datos para Pago por Nequi
+          </p>
+          <form id="nequiForm" style="display: flex; flex-direction: column; gap: 12px">
+            <div>
+              <label style="font-size: 12px; color: var(--gray-text)">Número de Celular Nequi *</label>
+              <input type="tel" id="nequiPhone" placeholder="+57 3XX XXX XXXX" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px" oninput="formatPhone(this)">
+              <small style="display: block; margin-top: 6px; color: var(--gray-text); font-size: 11px">Debe ser el número asociado a tu cuenta Nequi</small>
+            </div>
+            <div>
+              <label style="font-size: 12px; color: var(--gray-text)">Nombre Completo *</label>
+              <input type="text" id="nequiName" placeholder="Juan Pérez" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px">
+            </div>
+            <div style="background: rgba(233,30,139,0.1); border-left: 3px solid #e91e8b; padding: 12px; border-radius: 4px; font-size: 12px; color: var(--gray-text)">
+              💬 Te enviaremos por WhatsApp la solicitud de pago Nequi. Solo debes aprobarla desde tu app.
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+              <button type="button" class="adm-btn-ghost" onclick="backToPaymentMethod()">← ATRÁS</button>
+              <button type="button" class="adm-btn" onclick="processPaymentNequi()" style="background: #e91e8b">
+                → CONTINUAR
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- PASO 3: DAVIPLATA -->
+        <div id="paymentStep3Daviplata" class="payment-step" style="display: none">
+          <p style="font-size: 13px; color: var(--gray-text); margin-bottom: 20px">
+            📱 Datos para Pago por Daviplata
+          </p>
+          <form id="daviplataForm" style="display: flex; flex-direction: column; gap: 12px">
+            <div>
+              <label style="font-size: 12px; color: var(--gray-text)">Número de Celular Daviplata *</label>
+              <input type="tel" id="daviplataPhone" placeholder="+57 3XX XXX XXXX" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px" oninput="formatPhone(this)">
+              <small style="display: block; margin-top: 6px; color: var(--gray-text); font-size: 11px">Celular registrado en Davivienda / Daviplata</small>
+            </div>
+            <div>
+              <label style="font-size: 12px; color: var(--gray-text)">Nombre Completo *</label>
+              <input type="text" id="daviplataName" placeholder="Juan Pérez" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px">
+            </div>
+            <div style="background: rgba(255,107,0,0.1); border-left: 3px solid #ff6b00; padding: 12px; border-radius: 4px; font-size: 12px; color: var(--gray-text)">
+              💬 Te enviaremos por WhatsApp el código QR y datos para pagar desde tu Daviplata.
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+              <button type="button" class="adm-btn-ghost" onclick="backToPaymentMethod()">← ATRÁS</button>
+              <button type="button" class="adm-btn" onclick="processPaymentDaviplata()" style="background: #ff6b00">
+                → CONTINUAR
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- PASO 3: EFECTIVO -->
+        <div id="paymentStep3Cash" class="payment-step" style="display: none">
+          <p style="font-size: 13px; color: var(--gray-text); margin-bottom: 20px">
+            💵 Información para Pago en Efectivo
+          </p>
+          <form id="cashForm" style="display: flex; flex-direction: column; gap: 12px">
+            <div>
+              <label style="font-size: 12px; color: var(--gray-text)">¿Prefieres pagar en efectivo? *</label>
+              <select id="cashDeliveryOption" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px" onchange="updateCashFields()">
+                <option value="">Selecciona opción...</option>
+                <option value="delivery">Pago contra entrega</option>
+                <option value="pickup">Recogida en tienda</option>
+              </select>
+            </div>
+            <div id="cashDeliveryInfo" style="background: rgba(46,204,113,0.1); border-left: 3px solid #2ecc71; padding: 12px; border-radius: 4px; font-size: 12px; color: var(--gray-text)">
+              ℹ️ Selecciona una opción para continuar
+            </div>
+            <div>
+              <label style="font-size: 12px; color: var(--gray-text)">Referencia Adicional (Apto, Piso, etc.)</label>
+              <input type="text" id="cashDeliveryRef" placeholder="Apto 305, Portería 2, Casa blanca con puerta verde..." style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px">
+            </div>
+            <div style="background: rgba(52,152,219,0.1); border-left: 3px solid #3498db; padding: 12px; border-radius: 4px; font-size: 12px; color: var(--gray-text)">
+              👤 Te contactaremos al número de WhatsApp registrado para coordinar la entrega o recogida.
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+              <button type="button" class="adm-btn-ghost" onclick="backToPaymentMethod()">← ATRÁS</button>
+              <button type="button" class="adm-btn" onclick="processPaymentCash()" style="background: #2ecc71">
+                ✓ CONFIRMAR
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="modal-footer" id="paymentFooter">
+        <button class="adm-btn-ghost" onclick="closePaymentModal()">
+          CANCELAR
+        </button>
+      </div>
+    </div>
+
+    <!-- ══ MODAL OPCIONES DE LOGÍSTICA ══ -->
+    <div
+      class="modal-overlay"
+      id="shippingModalOverlay"
+      onclick="closeShippingModal()"
+    ></div>
+    <div class="adm-modal" id="shippingModal" style="max-width: 520px">
+      <div class="modal-header">
+        <h3>Selecciona tu método de envío</h3>
+        <button class="adm-close" onclick="closeShippingModal()">✕</button>
+      </div>
       <div class="modal-body">
-        <p
-          style="font-size: 13px; color: var(--gray-text); margin-bottom: 20px"
-        >
-          Tu pedido será procesado y te enviaremos los datos de pago al
-          finalizar por WhatsApp.
-        </p>
-        <div class="pay-methods-grid" id="checkoutPayMethods">
+        <div id="shippingOptions" style="display: flex; flex-direction: column; gap: 12px;">
           <!-- Se renderizan dinámicamente desde JS -->
+        </div>
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
+          <h4 style="margin-bottom: 10px; font-size: 14px;">Dirección de envío</h4>
+          <input type="text" id="shippingAddress" placeholder="Calle, número, apartamento" 
+            style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 10px; font-size: 13px;">
+          <input type="text" id="shippingCity" placeholder="Ciudad, Estado" 
+            style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 10px; font-size: 13px;">
+          <input type="text" id="shippingPhone" placeholder="Teléfono de contacto" 
+            style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px;">
         </div>
       </div>
       <div class="modal-footer">
-        <button class="adm-btn-ghost" onclick="closePaymentModal()">
+        <button class="adm-btn-ghost" onclick="closeShippingModal()">
           CANCELAR
+        </button>
+        <button class="adm-btn" onclick="confirmShipping()" id="confirmShippingBtn" disabled>
+          CONTINUAR AL PAGO
         </button>
       </div>
     </div>
@@ -1371,6 +1614,5 @@
     <!-- Chart.js for Sales Analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="app.js"></script>
-    <script src="admin.js"></script>
   </body>
 </html>

@@ -9,6 +9,7 @@
    CONFIG
 ══════════════════════════════════════════════════════════ */
 const SIZES = ['XS','S','M','L','XL','XXL'];
+let AUTH_TOKEN = null;  // Global auth token
 
 /* ══════════════════════════════════════════════════════════
    STATE (localStorage)
@@ -240,7 +241,7 @@ function showApp() {
   if (session) {
     AUTH_TOKEN = session.token;
     $('sidebarUser').querySelector('.su-name').textContent = session.role;
-    
+  }
   refreshAll();
   navigateTo('dashboard');
 }
@@ -267,7 +268,8 @@ window.addEventListener('DOMContentLoaded', () => {
 const PAGE_TITLES = {
   dashboard:'Dashboard', inventory:'Inventario & QR',
   pos:'Punto de Venta', payments:'Métodos de Pago',
-  sales:'Registro de Ventas', qrscan:'Escáner QR'
+  sales:'Registro de Ventas', qrscan:'Escáner QR',
+  vip:'Clientes VIP', reorder:'Reorden Automático', forecast:'Predicción de Demanda'
 };
 
 function navigateTo(page) {
@@ -280,6 +282,24 @@ function navigateTo(page) {
   $('pageTitle').textContent = PAGE_TITLES[page] || page;
   // Close sidebar on mobile
   $('sidebar').classList.remove('mobile-open');
+
+  // Load page-specific data
+  if (page === 'dashboard') {
+    renderDashboard();
+    loadAnalyticsData();
+  } else if (page === 'inventory') {
+    renderInventory();
+    loadLowStockAlerts();
+  } else if (page === 'payments') {
+    renderPayMethods();
+    renderPaymentsTable();
+  } else if (page === 'vip') {
+    loadVIPCustomersData();
+  } else if (page === 'reorder') {
+    loadReorderData();
+  } else if (page === 'forecast') {
+    loadForecastData();
+  }
 }
 
 document.querySelectorAll('.snav-item').forEach(btn => {
@@ -1452,30 +1472,239 @@ function registerPayment() {
 
 function renderPaymentsTable() {
   const tbody = $('paymentsBody');
-  if (!payLog.length) { tbody.innerHTML='<tr class="empty-row"><td colspan="6">Sin pagos registrados</td></tr>'; return; }
-  tbody.innerHTML = payLog.map(p=>`
-    <tr>
-      <td>${fmtDate(p.ts)}</td>
-      <td>${p.method}</td>
-      <td style="color:var(--gray-text);font-family:monospace;font-size:12px">${p.ref}</td>
-      <td style="font-weight:700;color:var(--accent)">${fmt(p.amount)}</td>
-      <td><span class="status-badge s-ok">Completado</span></td>
-      <td><button class="action-btn del" onclick="deletePayment('${p.id}')">✕</button></td>
-    </tr>`).join('');
+  const dateFilter = $('payFilterDate')?.value || '';
+  const methodFilter = $('payFilterMethod')?.value || '';
+  
+  if (!salesLog || !salesLog.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Sin pagos registrados</td></tr>';
+    return;
+  }
+  
+  let payList = [...salesLog];
+  
+  // Filtrar por fecha
+  if (dateFilter) {
+    payList = payList.filter(s => s.timestamp.startsWith(dateFilter));
+  }
+  
+  // Filtrar por método
+  if (methodFilter) {
+    // Mapear métodos de los formularios al método en ventas
+    const methodMap = {
+      'tarjeta': ['card', 'tarjeta', 'tarjeta debito', 'tarjeta credito'],
+      'pse': ['pse', 'pse/transferencia'],
+      'nequi': ['nequi'],
+      'daviplata': ['daviplata'],
+      'cash': ['cash', 'efectivo']
+    };
+    const filterMethods = methodMap[methodFilter] || [];
+    payList = payList.filter(s => {
+      const method = (s.method || '').toLowerCase();
+      const paymentMethod = (s.payment_method || '').toLowerCase();
+      return filterMethods.some(m => method.includes(m) || paymentMethod.includes(m));
+    });
+  }
+  
+  if (!payList.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No hay pagos con los filtros seleccionados</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = payList.map(p => {
+    const method = (p.method || p.payment_method || 'N/A').toLowerCase();
+    const methodDisplay = getPaymentMethodDisplay(method);
+    const details = getPaymentDetails(p);
+    const statusClass = p.payment_status === 'completed' ? 's-ok' : 
+                        p.payment_status === 'pending_verification' ? 's-pending' :
+                        p.payment_status === 'waiting_confirmation' ? 's-pending' : 's-warning';
+    const statusText = p.payment_status === 'completed' ? 'Completado' :
+                       p.payment_status === 'pending_verification' ? 'En verificación' :
+                       p.payment_status === 'waiting_confirmation' ? 'Por confirmar' : p.payment_status || 'Pendiente';
+    
+    return `
+      <tr>
+        <td style="font-size:12px">${fmtDate(p.timestamp)}</td>
+        <td>
+          <div style="font-size:13px;font-weight:600">${p.client || p.customer?.name || 'Cliente Web'}</div>
+          <div style="font-size:11px;color:var(--gray-text)">${p.customer_email || p.customer?.email || '—'}</div>
+        </td>
+        <td>
+          <div style="font-size:12px">${methodDisplay.icon} ${methodDisplay.name}</div>
+          <div style="font-size:11px;color:var(--gray-text)">${methodDisplay.type}</div>
+        </td>
+        <td style="font-size:11px;font-family:monospace;color:var(--gray-text)">
+          ${details}
+        </td>
+        <td style="font-weight:700;color:var(--accent);text-align:right">${fmt(p.total)}</td>
+        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+        <td style="text-align:center">
+          <button class="action-btn" onclick="viewPaymentDetails('${p.id}')" title="Ver detalles">👁</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function getPaymentMethodDisplay(method) {
+  const displays = {
+    'card': { name: 'Tarjeta', icon: '💳', type: 'Crédito/Débito' },
+    'tarjeta': { name: 'Tarjeta', icon: '💳', type: 'Crédito/Débito' },
+    'tarjeta debito': { name: 'Tarjeta Débito', icon: '💳', type: 'Débito' },
+    'tarjeta credito': { name: 'Tarjeta Crédito', icon: '💳', type: 'Crédito' },
+    'pse': { name: 'PSE', icon: '🏦', type: 'Transferencia' },
+    'pse/transferencia': { name: 'PSE/Transferencia', icon: '🏦', type: 'Transferencia' },
+    'nequi': { name: 'Nequi', icon: '📱', type: 'Billetera' },
+    'daviplata': { name: 'Daviplata', icon: '📱', type: 'Billetera' },
+    'cash': { name: 'Efectivo', icon: '💵', type: 'Contra Entrega' },
+    'efectivo': { name: 'Efectivo', icon: '💵', type: 'Contra Entrega' },
+  };
+  
+  for (const [key, val] of Object.entries(displays)) {
+    if (method.includes(key)) return val;
+  }
+  
+  return { name: method || 'Desconocido', icon: '❓', type: 'N/A' };
+}
+
+function getPaymentDetails(payment) {
+  const method = (payment.method || payment.payment_method || '').toLowerCase();
+  const details = payment.methodDetails || {};
+  
+  if (method.includes('card') || method.includes('tarjeta')) {
+    const cardBrand = details.cardBrand || 'CARD';
+    const cardLast4 = details.cardNumber?.slice(-4) || '****';
+    return `${cardBrand} •••• ${cardLast4}`;
+  } else if (method.includes('pse')) {
+    const bank = details.bank || 'Banco';
+    return `${bank}`;
+  } else if (method.includes('nequi')) {
+    const phone = details.nequiPhone || details.phone || '***';
+    return `${phone}`;
+  } else if (method.includes('daviplata')) {
+    const phone = details.daviplataPhone || details.phone || '***';
+    return `${phone}`;
+  } else if (method.includes('cash') || method.includes('efectivo')) {
+    const type = details.deliveryType || 'Contra Entrega';
+    return `${type}`;
+  }
+  
+  return details.reference || payment.reference_number || '—';
 }
 
 function deletePayment(id) {
   if (!confirm('¿Eliminar este pago del historial?')) return;
-  payLog = payLog.filter(p=>p.id!==id);
-  LS.set('payLog',payLog);
+  
+  // Eliminar de salesLog
+  salesLog = salesLog.filter(p => p.id !== id);
+  
+  // Eliminar de payLog si existe
+  payLog = payLog.filter(p => p.id !== id);
+  LS.set('payLog', payLog);
+  
   renderPaymentsTable();
+  toast('✓ Pago eliminado');
+}
+
+function viewPaymentDetails(id) {
+  const payment = salesLog.find(p => p.id === id);
+  if (!payment) {
+    toast('❌ Pago no encontrado');
+    return;
+  }
+  
+  const method = (payment.method || payment.payment_method || 'Desconocido').toLowerCase();
+  const methodDisplay = getPaymentMethodDisplay(method);
+  const details = payment.methodDetails || {};
+  
+  let detailsHtml = `
+    <strong>ID:</strong> ${payment.id}<br/>
+    <strong>Cliente:</strong> ${payment.client || payment.customer?.name || 'N/A'}<br/>
+    <strong>Email:</strong> ${payment.customer_email || payment.customer?.email || 'N/A'}<br/>
+    <strong>Teléfono:</strong> ${payment.customer_phone || payment.customer?.phone || 'N/A'}<br/>
+    <strong>Dirección:</strong> ${payment.shipping_address || payment.customer?.address || 'N/A'}<br/>
+    <strong>Método:</strong> ${methodDisplay.icon} ${methodDisplay.name}<br/>
+    <strong>Monto:</strong> ${fmt(payment.total)}<br/>
+    <strong>Estado:</strong> ${payment.payment_status || 'Pendiente'}<br/>
+  `;
+  
+  if (details.cardBrand) {
+    detailsHtml += `<strong>Tarjeta:</strong> ${details.cardBrand} •••• ${details.cardNumber?.slice(-4)}<br/>`;
+    detailsHtml += `<strong>Documento:</strong> ${details.documentNumber || 'N/A'}<br/>`;
+  }
+  if (details.bank) {
+    detailsHtml += `<strong>Banco:</strong> ${details.bank}<br/>`;
+    detailsHtml += `<strong>Documento:</strong> ${details.documentNumber || 'N/A'}<br/>`;
+  }
+  if (details.nequiPhone) {
+    detailsHtml += `<strong>Celular Nequi:</strong> ${details.nequiPhone}<br/>`;
+    detailsHtml += `<strong>Nombre:</strong> ${details.nequiName || 'N/A'}<br/>`;
+  }
+  if (details.daviplataPhone) {
+    detailsHtml += `<strong>Celular Daviplata:</strong> ${details.daviplataPhone}<br/>`;
+    detailsHtml += `<strong>Nombre:</strong> ${details.daviplataName || 'N/A'}<br/>`;
+  }
+  if (details.deliveryType) {
+    detailsHtml += `<strong>Tipo Entrega:</strong> ${details.deliveryType}<br/>`;
+  }
+  
+  // Items
+  if (payment.items && Array.isArray(payment.items) && payment.items.length) {
+    detailsHtml += `<strong>Items:</strong><br/>`;
+    payment.items.forEach(item => {
+      detailsHtml += `&nbsp;&nbsp;• ${item.name} x${item.qty} @ ${fmt(item.price)}<br/>`;
+    });
+  }
+  
+  alert(detailsHtml.replace(/<br\/>/g, '\n'));
 }
 
 function exportPaymentsCSV() {
-  if (!payLog.length) { toast('⚠ Sin pagos'); return; }
-  const rows = [['Fecha/Hora','Método','Referencia','Monto'], ...payLog.map(p=>[p.ts,p.method,p.ref,p.amount])];
+  if (!salesLog || !salesLog.length) {
+    toast('⚠️ Sin pagos para exportar');
+    return;
+  }
+  
+  const dateFilter = $('payFilterDate')?.value || '';
+  const methodFilter = $('payFilterMethod')?.value || '';
+  
+  let payList = [...salesLog];
+  
+  if (dateFilter) {
+    payList = payList.filter(s => s.timestamp.startsWith(dateFilter));
+  }
+  
+  if (methodFilter) {
+    const methodMap = {
+      'tarjeta': ['card', 'tarjeta', 'tarjeta debito', 'tarjeta credito'],
+      'pse': ['pse', 'pse/transferencia'],
+      'nequi': ['nequi'],
+      'daviplata': ['daviplata'],
+      'cash': ['cash', 'efectivo']
+    };
+    const filterMethods = methodMap[methodFilter] || [];
+    payList = payList.filter(s => {
+      const method = (s.method || '').toLowerCase();
+      const paymentMethod = (s.payment_method || '').toLowerCase();
+      return filterMethods.some(m => method.includes(m) || paymentMethod.includes(m));
+    });
+  }
+  
+  const rows = [
+    ['Fecha/Hora', 'Cliente', 'Email', 'Teléfono', 'Método', 'Monto', 'Estado', 'Referencia'],
+    ...payList.map(p => [
+      fmtDate(p.timestamp),
+      p.client || p.customer?.name || '—',
+      p.customer_email || p.customer?.email || '—',
+      p.customer_phone || p.customer?.phone || '—',
+      (p.method || p.payment_method || '—').toUpperCase(),
+      p.total,
+      p.payment_status || 'Pendiente',
+      p.reference_number || p.id || '—'
+    ])
+  ];
+  
   downloadCSV(rows, `winner_pagos_${new Date().toISOString().slice(0,10)}.csv`);
-  toast('⬇ Pagos exportados');
+  toast('⬇️ Pagos exportados');
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1631,8 +1860,386 @@ function openProductQRScanner() {
 }
 
 /* ══════════════════════════════════════════════════════════
+   ANALYTICS DASHBOARD — Cargar datos avanzados del backend
+══════════════════════════════════════════════════════════ */
+
+async function loadAnalyticsData() {
+  try {
+    // Cargar datos en paralelo con mejor manejo de errores
+    const [channelRes, productsRes, timelineRes, inventoryRes, summaryRes] = await Promise.all([
+      apiFetch(`${API_URL}/analytics/sales-by-channel`).catch(e => ({ ok: false })),
+      apiFetch(`${API_URL}/analytics/top-products`).catch(e => ({ ok: false })),
+      apiFetch(`${API_URL}/analytics/sales-timeline?period=day`).catch(e => ({ ok: false })),
+      apiFetch(`${API_URL}/analytics/inventory-status`).catch(e => ({ ok: false })),
+      apiFetch(`${API_URL}/analytics/summary`).catch(e => ({ ok: false }))
+    ]);
+
+    let channelData = [];
+    let productsData = [];
+    let timelineData = [];
+    let inventoryData = [];
+    let summaryData = {};
+
+    if (channelRes.ok) channelData = await channelRes.json().catch(() => []);
+    if (productsRes.ok) productsData = await productsRes.json().catch(() => []);
+    if (timelineRes.ok) timelineData = await timelineRes.json().catch(() => []);
+    if (inventoryRes.ok) inventoryData = await inventoryRes.json().catch(() => []);
+    if (summaryRes.ok) summaryData = await summaryRes.json().catch(() => ({}));
+
+    // Guardar en variables globales para usar en gráficos
+    window.analyticsCache = {
+      channels: channelData,
+      products: productsData,
+      timeline: timelineData,
+      inventory: inventoryData,
+      summary: summaryData
+    };
+
+    // Renderizar gráficos solo si hay datos
+    if (channelData.length > 0) renderChannelChart(channelData);
+    if (productsData.length > 0) renderProductChart(productsData);
+    if (timelineData.length > 0) renderTimelineChart(timelineData);
+
+    console.log('✅ Analytics data loaded:', window.analyticsCache);
+  } catch(e) {
+    console.error('⚠️ Error loading analytics:', e);
+  }
+}
+
+// Gráfico: Ventas por Canal (Online vs Física)
+let channelChartInstance = null;
+function renderChannelChart(data) {
+  const el = document.getElementById('chartChannels');
+  if (!el) return;
+
+  const labels = data.map(d => {
+    const label = d.channel || 'Física';
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  });
+  const sales = data.map(d => d.total_sales || 0);
+  const revenue = data.map(d => d.total_revenue || 0);
+
+  if (channelChartInstance) channelChartInstance.destroy();
+
+  const ctx = el.getContext('2d');
+  channelChartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: revenue,
+        backgroundColor: ['#e8ff47', '#2ed573', '#1e90ff'],
+        borderColor: '#0a0a0a',
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#999', font: { size: 11 } }
+        }
+      }
+    }
+  });
+}
+
+// Gráfico: Top 10 Productos más vendidos
+let productsChartInstance = null;
+function renderProductChart(data) {
+  const el = document.getElementById('chartTopProducts');
+  if (!el) return;
+
+  const top5 = data.slice(0, 5);
+  const labels = top5.map(p => p.name.slice(0, 20));
+  const quantities = top5.map(p => p.qty_sold || 0);
+
+  if (productsChartInstance) productsChartInstance.destroy();
+
+  const ctx = el.getContext('2d');
+  productsChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Unidades vendidas',
+        data: quantities,
+        backgroundColor: '#e8ff47',
+        borderRadius: 3,
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#666', font: { size: 10 } }
+        },
+        y: {
+          grid: { display: false },
+          ticks: { color: '#666', font: { size: 10 } }
+        }
+      }
+    }
+  });
+}
+
+// Gráfico: Timeline de ventas (últimos 7+ días)
+let timelineChartInstance = null;
+function renderTimelineChart(data) {
+  const el = document.getElementById('chartSalesTimeline');
+  if (!el) return;
+
+  const labels = data.map(d => {
+    const [year, month, day] = d.period.split('-');
+    return new Date(year, parseInt(month)-1, day).toLocaleDateString('es-CO', { weekday: 'short', month: 'short', day: 'numeric' });
+  });
+  const revenues = data.map(d => d.total_revenue || 0);
+
+  if (timelineChartInstance) timelineChartInstance.destroy();
+
+  const ctx = el.getContext('2d');
+  timelineChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Ingresos diarios (COP)',
+        data: revenues,
+        borderColor: '#e8ff47',
+        backgroundColor: 'rgba(232, 255, 71, 0.05)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+        pointBackgroundColor: '#e8ff47',
+        pointBorderColor: '#0a0a0a',
+        pointBorderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true, labels: { color: '#999', font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: ctx => fmt(ctx.raw)
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#666', font: { size: 10 } }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#666', font: { size: 10 }, callback: v => fmt(v) }
+        }
+      }
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
    TOGGLE PAY SECTION (colapsar/expandir secciones de pago)
 ══════════════════════════════════════════════════════════ */
+async function loadLowStockAlerts() {
+  try {
+    const res = await apiFetch(`${API_URL}/analytics/low-stock?threshold=10`);
+    if (!res.ok) {
+      console.warn(`Low stock API returned ${res.status}`);
+      return;
+    }
+    const lowStockProducts = await res.json().catch(() => []);
+    const alertsDiv = $('lowStockAlerts');
+    
+    if (!lowStockProducts || lowStockProducts.length === 0) {
+      alertsDiv.innerHTML = '';
+      return;
+    }
+
+    alertsDiv.innerHTML = `
+      <div class="alert-banner" style="background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);padding:16px;border-radius:4px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:12px;color:#ff6b6b">
+          <span style="font-size:20px">⚠️</span>
+          <div>
+            <strong>${lowStockProducts.length} producto(s) con bajo stock</strong>
+            <p style="font-size:12px;margin:4px 0 0 0;color:#999">Actualiza el inventario para evitar problemas de disponibilidad</p>
+          </div>
+        </div>
+        <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
+          ${lowStockProducts.slice(0, 5).map(p => `
+            <div style="background:rgba(255,107,107,0.2);padding:6px 10px;border-radius:3px;font-size:11px;color:#ff9898">
+              <strong>${p.name.slice(0,20)}:</strong> ${p.total_stock} unidades
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  } catch(e) {
+    console.error('Error loading low stock alerts:', e);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   VIP CUSTOMERS ANALYTICS
+══════════════════════════════════════════════════════════ */
+async function loadVIPCustomersData() {
+  try {
+    // Sincronizar clientes primero
+    await apiFetch(`${API_URL}/customers/sync`, { method: 'POST' }).catch(e => console.log('Sync error:', e));
+    
+    const [vipRes, segmentRes] = await Promise.all([
+      apiFetch(`${API_URL}/customers/vip?limit=100`).catch(e => ({ ok: false })),
+      apiFetch(`${API_URL}/customers/segment`).catch(e => ({ ok: false }))
+    ]);
+    
+    let vipCustomers = [];
+    let segmentData = [];
+    if (vipRes.ok) vipCustomers = await vipRes.json().catch(() => []);
+    if (segmentRes.ok) segmentData = await segmentRes.json().catch(() => []);
+    
+    // Actualizar KPI cards
+    const vipTotal = segmentData.find(s => s.vip_status === 'vip')?.count || 0;
+    const regularTotal = segmentData.find(s => s.vip_status === 'standard')?.count || 0;
+    const vipSpent = segmentData.find(s => s.vip_status === 'vip')?.total_spent || 0;
+    
+    $('vipCount').textContent = vipTotal;
+    $('regularCount').textContent = regularTotal;
+    $('vipSpent').textContent = fmt(vipSpent);
+    
+    // Renderizar tabla de VIP
+    const tbody = $('vipCustomersBody');
+    if (!vipCustomers || vipCustomers.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No hay clientes VIP</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = vipCustomers.map(c => `
+      <tr>
+        <td>${esc(c.email || 'N/A')}</td>
+        <td>${esc(c.name || 'N/A')}</td>
+        <td>${esc(c.phone || 'N/A')}</td>
+        <td>${fmt(c.total_spent || 0)}</td>
+        <td>${c.total_orders || 0}</td>
+        <td>${c.last_purchase ? new Date(c.last_purchase).toLocaleDateString() : 'N/A'}</td>
+      </tr>
+    `).join('');
+    
+    console.log('✅ VIP data loaded');
+  } catch(e) {
+    console.error('Error loading VIP data:', e);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   REORDER MANAGEMENT
+══════════════════════════════════════════════════════════ */
+async function loadReorderData() {
+  try {
+    const [checkRes, rulesRes] = await Promise.all([
+      apiFetch(`${API_URL}/reorder-check`).catch(e => ({ ok: false })),
+      apiFetch(`${API_URL}/reorder-rules`).catch(e => ({ ok: false }))
+    ]);
+    
+    let needsReorder = [];
+    let rules = [];
+    if (checkRes.ok) needsReorder = await checkRes.json().catch(() => []);
+    if (rulesRes.ok) rules = await rulesRes.json().catch(() => []);
+    
+    // Productos que necesitan reorden
+    const needsList = $('reorderNeedsList');
+    if (!needsReorder || needsReorder.length === 0) {
+      needsList.innerHTML = '<div style="padding: 12px; background: var(--gray); border-radius: 6px; text-align: center; color: #2ecc71;">✓ Todo en orden - No hay reordenes pendientes</div>';
+    } else {
+      needsList.innerHTML = needsReorder.map(item => `
+        <div style="padding: 12px; background: var(--gray); border-radius: 6px; border-left: 4px solid var(--accent);">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <strong>${esc(item.name)}</strong>
+              <div style="font-size: 12px; color: var(--gray-text); margin-top: 4px;">
+                Stock actual: ${item.current_stock} | Mínimo: ${item.min_stock}
+              </div>
+            </div>
+            <button onclick="alert('Crear reorden para: ${esc(item.name)}')" style="padding: 6px 12px; background: var(--accent); color: #000; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">Reordenar</button>
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    // Tabla de reglas
+    const rulesTable = $('reorderRulesBody');
+    if (!rules || rules.length === 0) {
+      rulesTable.innerHTML = '<tr class="empty-row"><td colspan="5">No hay reglas configuradas</td></tr>';
+    } else {
+      rulesTable.innerHTML = rules.map(r => `
+        <tr>
+          <td>${esc(r.product_name || 'N/A')}</td>
+          <td>${r.min_stock}</td>
+          <td>${r.qty_to_order}</td>
+          <td>${fmt(r.reorder_cost || 0)}</td>
+          <td>${r.enabled ? '✓ Activa' : '✗ Inactiva'}</td>
+        </tr>
+      `).join('');
+    }
+    
+    console.log('✅ Reorder data loaded');
+  } catch(e) {
+    console.error('Error loading reorder data:', e);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   DEMAND FORECASTING
+══════════════════════════════════════════════════════════ */
+async function loadForecastData() {
+  try {
+    // Primero calcular predicciones
+    await apiFetch(`${API_URL}/demand-forecast/calculate`, { method: 'POST' }).catch(e => console.log('Forecast calc error:', e));
+    
+    const res = await apiFetch(`${API_URL}/demand-forecast?limit=50`).catch(e => ({ ok: false }));
+    if (!res.ok) {
+      console.warn('Cannot fetch forecasts');
+      $('forecastBody').innerHTML = '<tr class="empty-row"><td colspan="5">Error al cargar predicciones</td></tr>';
+      return;
+    }
+    const forecasts = await res.json().catch(() => []);
+    
+    const tbody = $('forecastBody');
+    if (!forecasts || forecasts.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No hay predicciones disponibles</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = forecasts.map(f => {
+      const trendEmoji = f.trend === 'up' ? '📈' : f.trend === 'down' ? '📉' : '➡️';
+      const confidence = f.confidence_score || 0;
+      const confidenceColor = confidence > 75 ? '#2ecc71' : confidence > 50 ? '#f39c12' : '#e74c3c';
+      
+      return `
+        <tr>
+          <td>${esc(f.product_name || 'N/A')}</td>
+          <td><strong>${f.predicted_qty || 0} unidades</strong></td>
+          <td title="Confianza de la predicción" style="color: ${confidenceColor}; font-weight: 600;">${Math.round(confidence)}%</td>
+          <td>${trendEmoji} ${f.trend || 'stable'}</td>
+          <td>${f.last_updated ? new Date(f.last_updated).toLocaleDateString() : 'N/A'}</td>
+        </tr>
+      `;
+    }).join('');
+    
+    console.log('✅ Forecast data loaded');
+  } catch(e) {
+    console.error('Error loading forecast data:', e);
+  }
+}
+
 function togglePaySection(sectionId) {
   const el = $(sectionId);
   if (!el) return;
@@ -1800,7 +2407,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Hash navigation (ej: #qrscan desde móvil)
   const hash = window.location.hash.replace('#', '');
-  const validPages = ['dashboard','inventory','pos','payments','sales','qrscan'];
+  const validPages = ['dashboard','inventory','pos','payments','sales','qrscan','vip','reorder','forecast'];
   if (hash && validPages.includes(hash) && verifySession()) {
     navigateTo(hash);
   }
@@ -1809,4 +2416,3 @@ document.addEventListener('DOMContentLoaded', () => {
 // ═════════════════════════════════════════════════════════
 // Fin del archivo admin-panel.js
 // ═════════════════════════════════════════════════════════
-}
