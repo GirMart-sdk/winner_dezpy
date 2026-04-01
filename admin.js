@@ -141,14 +141,25 @@ const PAY_METHODS_CONFIG = [
 
 let admPayments = [];
 let admPayMethods = [...PAY_METHODS_CONFIG];
+let admInventory = [];
 
 try {
   const pData = localStorage.getItem("winner_payments");
-  if (pData) admPayments = JSON.parse(pData);
+  if (pData) {
+    const parsed = JSON.parse(pData);
+    admPayments = Array.isArray(parsed) ? parsed : [];
+  }
 
   const mData = localStorage.getItem("winner_payMethods");
-  if (mData) admPayMethods = JSON.parse(mData);
-} catch (e) {}
+  if (mData) {
+    const parsed = JSON.parse(mData);
+    admPayMethods = Array.isArray(parsed) ? parsed : [...PAY_METHODS_CONFIG];
+  }
+} catch (e) {
+  console.warn("⚠️  Error loading admin data:", e);
+  admPayments = [];
+  admPayMethods = [...PAY_METHODS_CONFIG];
+}
 
 /* ══════════════════════════════════════════════════════════
    ADMIN PANEL TOGGLE

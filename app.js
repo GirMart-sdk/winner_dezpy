@@ -191,15 +191,25 @@ let DOM = initDOM();
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 function saveCart() {
   try {
+    if (!Array.isArray(cart)) {
+      console.warn("⚠️  cart is not an array");
+      return;
+    }
     localStorage.setItem("winner_cart", JSON.stringify(cart));
-  } catch {}
+  } catch (err) {
+    console.error("❌ Error saving cart:", err);
+  }
 }
 
 function loadCart() {
   try {
     const data = localStorage.getItem("winner_cart");
-    return data ? JSON.parse(data) : [];
-  } catch {
+    if (!data) return [];
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.warn("⚠️  Error loading cart, resetting:", err);
+    localStorage.removeItem("winner_cart");
     return [];
   }
 }
@@ -408,7 +418,11 @@ function addToCart(productId, sizeId) {
 }
 
 function removeFromCart(cartId) {
-  cart = cart.filter((i) => i.cartId !== cartId);
+  if (!cartId || !Array.isArray(cart)) {
+    console.warn("⚠️  Invalid cartId or cart not initialized");
+    return;
+  }
+  cart = cart.filter((i) => i.cartId && i.cartId !== cartId);
   saveCart();
   renderCart();
 }
