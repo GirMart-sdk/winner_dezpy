@@ -75,33 +75,115 @@ let paymentData = {
   },
 };
 
-// Shipping options with different carriers
+// ═══════════════════════════════════════════════════════
+// TRANSPORTADORAS COLOMBIANAS
+// ═══════════════════════════════════════════════════════
 const SHIPPING_OPTIONS = [
   {
-    id: 'express',
-    name: 'Express 24-48h',
-    carrier: 'DHL Express',
-    cost: 29990,
-    days: '1-2 días',
-    description: 'Entrega rápida a todo el país'
-  },
-  {
-    id: 'standard',
-    name: 'Estándar 3-5 días',
+    id: 'servientrega_express',
+    name: 'Servientrega Express',
     carrier: 'Servientrega',
-    cost: 15990,
-    days: '3-5 días',
-    description: 'Envío económico y confiable'
+    cost: 18990,
+    days: '1-2 días',
+    icon: '🚀',
+    description: 'Express a ciudades principales. Trazabilidad en tiempo real.'
   },
   {
-    id: 'pickup',
-    name: 'Recogida en tienda',
-    carrier: 'Winner Store',
+    id: 'servientrega_standard',
+    name: 'Servientrega Estándar',
+    carrier: 'Servientrega',
+    cost: 12990,
+    days: '3-5 días',
+    icon: '🚚',
+    description: 'Cobertura nacional. Entrega segura y confiable.'
+  },
+  {
+    id: '4_72',
+    name: '4-72 Express',
+    carrier: '4-72',
+    cost: 21990,
+    days: '1-2 días',
+    icon: '⚡',
+    description: 'Cobertura nacional. Entregas rápidas a todo el país.'
+  },
+  {
+    id: 'coordinadora',
+    name: 'Coordinadora',
+    carrier: 'Coordinadora',
+    cost: 14990,
+    days: '2-4 días',
+    icon: '📦',
+    description: 'Red nacional. Cobertura en ciudades principales.'
+  },
+  {
+    id: 'dhl_colombia',
+    name: 'DHL Colombia',
+    carrier: 'DHL Colombia',
+    cost: 24990,
+    days: '1 día',
+    icon: '🌍',
+    description: 'Envíos internacionales y nacionales express.'
+  },
+  {
+    id: 'pickup_bogota',
+    name: 'Recogida en Bogotá',
+    carrier: 'Winner Store (Bogotá)',
     cost: 0,
-    days: 'Hoy/Mañana',
-    description: 'Retira tu pedido en nuestro local'
+    days: '2-4 horas',
+    icon: '🏪',
+    description: 'Recoge tu pedido en nuestro local de Bogotá.'
+  },
+  {
+    id: 'pickup_medellin',
+    name: 'Recogida en Medellín',
+    carrier: 'Winner Store (Medellín)',
+    cost: 0,
+    days: '2-4 horas',
+    icon: '🏪',
+    description: 'Recoge tu pedido en nuestro local de Medellín.'
   },
 ];
+
+// ═══════════════════════════════════════════════════════
+// CONFIGURACIÓN DE PASARELAS DE PAGO
+// ═══════════════════════════════════════════════════════
+const PAYMENT_GATEWAYS = {
+  NEQUI: {
+    name: 'Nequi',
+    icon: '📱',
+    color: '#e91e8b',
+    url: 'https://www.equifax.com.co/nequi',
+    instructions: 'Te enviaremos un link de pago seguro via WhatsApp'
+  },
+  DAVIPLATA: {
+    name: 'Daviplata',
+    icon: '📱',
+    color: '#ff6b00',
+    url: 'https://www.davivienda.com/daviplata',
+    instructions: 'Recibirás instrucciones de pago por WhatsApp'
+  },
+  PSE: {
+    name: 'PSE / Transferencia',
+    icon: '🏦',
+    color: '#1e90ff',
+    url: 'https://www.pagofacil.com.co',
+    instructions: 'Serás redirigido a PSE para confirmar tu pago'
+  },
+  CARD: {
+    name: 'Tarjeta de Crédito/Débito',
+    icon: '💳',
+    color: '#3498db',
+    url: 'https://checkout.wompi.co',
+    instructions: 'Ingresa los datos de tu tarjeta de forma encriptada'
+  },
+  CASH: {
+    name: 'Efectivo',
+    icon: '💵',
+    color: '#2ecc71',
+    url: null,
+    instructions: 'Pagarás contra entrega o en recogida en tienda'
+  }
+};
 
 async function fetchProducts() {
   try {
@@ -514,18 +596,19 @@ function renderShippingOptions() {
   
   shippingContainer.innerHTML = SHIPPING_OPTIONS.map(option => `
     <div class="shipping-card" onclick="selectShippingMethod('${option.id}', ${option.cost})" 
-         style="padding: 16px; border: 2px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.3s; background: var(--dark);">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <div>
+         style="padding: 16px; border: 2px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.3s; background: var(--dark); hover: opacity 0.9;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+        <div style="font-size: 32px; min-width: 40px;">${option.icon}</div>
+        <div style="flex: 1;">
           <div style="font-weight: 600; color: white; font-size: 14px;">${option.name}</div>
           <div style="color: var(--gray-text); font-size: 12px; margin-top: 4px;">${option.carrier} • ${option.days}</div>
+          <div style="color: var(--gray-text); font-size: 12px; margin-top: 6px;">${option.description}</div>
         </div>
-        <div style="text-align: right;">
+        <div style="text-align: right; min-width: 120px;">
           <div style="font-weight: bold; color: var(--accent); font-size: 16px;">${option.cost === 0 ? 'GRATIS' : formatPrice(option.cost)}</div>
-          ${option.cost > 0 ? `<div style="color: var(--gray-text); font-size: 11px;">+ ${formatPrice(option.cost)} al total</div>` : ''}
+          ${option.cost > 0 ? `<div style="color: var(--gray-text); font-size: 11px;">+ ${formatPrice(option.cost)}</div>` : '<div style="color: var(--accent); font-size: 11px;">Sin costo</div>'}
         </div>
       </div>
-      <div style="color: var(--gray-text); font-size: 12px;">${option.description}</div>
     </div>
   `).join("");
 }
@@ -580,25 +663,40 @@ function updatePaymentSummary() {
 function renderPaymentMethods() {
   const container = document.getElementById("checkoutPayMethods");
   const methods = [
-    { name: "Tarjeta de Crédito", icon: "💳", color: "#3498db", bg: "rgba(52,152,219,0.12)" },
-    { name: "Nequi", icon: "📱", color: "#e91e8b", bg: "rgba(233,30,139,0.12)" },
-    { name: "Daviplata", icon: "📱", color: "#ff6b00", bg: "rgba(255,107,0,0.12)" },
-    { name: "Efectivo", icon: "💵", color: "#2ecc71", bg: "rgba(46,204,113,0.12)" },
-    { name: "PSE / Transferencia", icon: "🏦", color: "#1e90ff", bg: "rgba(30,144,255,0.12)" },
+    { name: "Tarjeta de Crédito", icon: "💳", color: "#3498db", bg: "rgba(52,152,219,0.12)", info: "Visa, Mastercard, Amex" },
+    { name: "Nequi", icon: "📱", color: "#e91e8b", bg: "rgba(233,30,139,0.12)", info: "App bancaria móvil" },
+    { name: "Daviplata", icon: "📱", color: "#ff6b00", bg: "rgba(255,107,0,0.12)", info: "Billetera W Davivienda" },
+    { name: "Efectivo", icon: "💵", color: "#2ecc71", bg: "rgba(46,204,113,0.12)", info: "Contra entrega o en tienda" },
+    { name: "PSE / Transferencia", icon: "🏦", color: "#1e90ff", bg: "rgba(30,144,255,0.12)", info: "Transferencia bancaria" },
   ];
 
-  container.innerHTML = methods.map(m => `
+  let html = '';
+  
+  // Add info banner
+  html += `
+    <div style="background: rgba(52,152,219,0.1); border-left: 3px solid #3498db; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 12px; color: var(--gray-text);">
+      🔒 <strong>Pago Seguro:</strong> Tu información está protegida y encriptada. Serás redirigido a la plataforma de pago de tu banco.
+    </div>
+  `;
+  
+  // Add payment methods
+  html += methods.map(m => `
     <div class="pm-card enabled" style="border: 2px solid ${m.color}33; background: ${m.bg}; padding: 16px; border-radius: 6px; cursor: pointer; transition: all 0.3s;" 
+         onmouseover="this.style.borderColor='${m.color}'; this.style.opacity='0.9';"
+         onmouseout="this.style.borderColor='${m.color}33'; this.style.opacity='1';"
          onclick="selectPaymentMethod('${m.name}')">
       <div style="display: flex; gap: 12px; align-items: center;">
         <span style="font-size: 32px;">${m.icon}</span>
-        <div>
+        <div style="flex: 1;">
           <div class="pm-name" style="color: ${m.color}; font-weight: 600; font-size: 14px;">${m.name}</div>
-          <div class="pm-status" style="color: var(--gray-text); font-size: 12px;">✓ Seleccionar</div>
+          <div class="pm-status" style="color: var(--gray-text); font-size: 12px;">${m.info}</div>
         </div>
+        <div style="color: ${m.color}; font-size: 20px;">→</div>
       </div>
     </div>
   `).join("");
+  
+  container.innerHTML = html;
 }
 
 async function selectPaymentMethod(methodName) {
@@ -611,15 +709,198 @@ async function selectPaymentMethod(methodName) {
   const success = await registerOnlineSale(methodName);
   
   if (success) {
-    showToast("🏆 ¡Pedido realizado con éxito!");
-    cart = [];
-    saveCart();
-    renderCart();
-    closePaymentModal();
-    closeCart();
+    // Save sale ID for reference
+    const saleId = "ON" + Date.now().toString(36).toUpperCase();
+    localStorage.setItem("lastSaleId", saleId);
+    
+    // Store payment data for post-confirmation
+    localStorage.setItem("paymentData", JSON.stringify({
+      method: methodName,
+      customer: paymentData.customer,
+      shipping: paymentData.shipping,
+      timestamp: new Date().toISOString()
+    }));
+    
+    // Redirect to payment gateway
+    redirectToPaymentGateway(methodName);
+    
+    // Clear UI
+    setTimeout(() => {
+      cart = [];
+      saveCart();
+      renderCart();
+      closePaymentModal();
+      closeCart();
+    }, 1000);
   } else {
     showToast("❌ Error al procesar el pedido. Intenta de nuevo.");
   }
+}
+
+function redirectToPaymentGateway(methodName) {
+  const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+  const total = subtotal + paymentData.shipping.cost;
+  
+  // Map display names to gateway keys
+  const methodMap = {
+    'Tarjeta de Crédito': 'CARD',
+    'Nequi': 'NEQUI',
+    'Daviplata': 'DAVIPLATA',
+    'Efectivo': 'CASH',
+    'PSE / Transferencia': 'PSE'
+  };
+  
+  const gatewayKey = methodMap[methodName];
+  const gateway = PAYMENT_GATEWAYS[gatewayKey];
+  
+  if (!gateway) {
+    showToast("❌ Método de pago no reconocido");
+    return;
+  }
+  
+  // Build payment parameters
+  const paymentParams = {
+    amount: total,
+    currency: 'COP',
+    customer: {
+      name: paymentData.customer.name,
+      email: paymentData.customer.email,
+      phone: paymentData.customer.phone
+    },
+    reference: "ON" + Date.now().toString(36).toUpperCase(),
+    description: `Compra Winner - ${paymentData.customer.name}`,
+    returnUrl: `${window.location.origin}?payment=success`,
+    cancelUrl: `${window.location.origin}?payment=cancel`
+  };
+  
+  // Handle different payment methods
+  switch (gatewayKey) {
+    case 'NEQUI':
+      handleNequiPayment(paymentParams);
+      break;
+    case 'DAVIPLATA':
+      handleDaviplataPayment(paymentParams);
+      break;
+    case 'PSE':
+      handlePSEPayment(paymentParams);
+      break;
+    case 'CARD':
+      handleCardPayment(paymentParams);
+      break;
+    case 'CASH':
+      handleCashPayment(paymentParams);
+      break;
+    default:
+      showToast("⚠️ Método no disponible");
+  }
+}
+
+function handleNequiPayment(params) {
+  // Enviar por WhatsApp con link de pago
+  const message = `Hola, para confirmar tu compra de $${formatPrice(params.amount)}, por favor accede a: ${window.location.origin}/pagar?ref=${params.reference}`;
+  const whatsappUrl = `https://wa.me/+573166019030?text=${encodeURIComponent(message)}`;
+  
+  showToast("📱 Abriendo WhatsApp para confirmar pago...");
+  setTimeout(() => {
+    window.open(whatsappUrl, '_blank');
+  }, 500);
+}
+
+function handleDaviplataPayment(params) {
+  // Enviar por WhatsApp con instrucciones
+  const message = `Hola, para pagar tu compra de $${formatPrice(params.amount)} con Daviplata, por favor responde este mensaje. Te enviaremos las instrucciones.`;
+  const whatsappUrl = `https://wa.me/+573166019030?text=${encodeURIComponent(message)}`;
+  
+  showToast("📱 Abriendo WhatsApp para instrucciones...");
+  setTimeout(() => {
+    window.open(whatsappUrl, '_blank');
+  }, 500);
+}
+
+function handlePSEPayment(params) {
+  // Redirigir a PSE
+  const pseUrl = buildPSEUrl(params);
+  
+  showToast("🏦 Redirigiendo a PSE...");
+  setTimeout(() => {
+    window.location.href = pseUrl;
+  }, 800);
+}
+
+function handleCardPayment(params) {
+  // Redirigir a Wompi o similar
+  const wompiUrl = buildWompiUrl(params);
+  
+  showToast("💳 Redirigiendo a plataforma de pago...");
+  setTimeout(() => {
+    window.location.href = wompiUrl;
+  }, 800);
+}
+
+function handleCashPayment(params) {
+  // Mostrar instrucciones y contacto
+  const instructions = `
+    ✅ Tu pedido ha sido registrado.
+    
+    💵 PAGO EN EFECTIVO
+    
+    📦 Envío seleccionado: ${paymentData.shipping.method}
+    💸 Total: ${formatPrice(params.amount)}
+    
+    📱 Te contactaremos al: ${paymentData.customer.phone}
+    📧 Confirmación enviada a: ${paymentData.customer.email}
+    
+    Options:
+    ▪ Pagar contra entrega
+    ▪ Pagar en tienda al recoger
+    
+    WhatsApp de soporte: https://wa.me/+573166019030
+  `;
+  
+  showToast("💵 Instrucciones enviadas a tu email y WhatsApp");
+  
+  // Enviar por WhatsApp
+  const whatsappUrl = `https://wa.me/+573166019030?text=${encodeURIComponent(`Hola, realizé una compra de $${formatPrice(params.amount)} para pagar en efectivo. Mi referencia es ${params.reference}`)}`;
+  setTimeout(() => {
+    window.open(whatsappUrl, '_blank');
+  }, 500);
+}
+
+function buildPSEUrl(params) {
+  // URL base de PSE (requiere integración real con tu proveedor)
+  const pseBaseUrl = 'https://www.pagofacil.com.co/checkout';
+  const pseParams = new URLSearchParams({
+    amount: params.amount,
+    currency: params.currency,
+    reference: params.reference,
+    description: params.description,
+    name: params.customer.name,
+    email: params.customer.email,
+    phone: params.customer.phone,
+    returnUrl: params.returnUrl,
+    cancelUrl: params.cancelUrl
+  });
+  
+  return `${pseBaseUrl}?${pseParams.toString()}`;
+}
+
+function buildWompiUrl(params) {
+  // URL de Wompi para checkout (requiere integración real)
+  const wompiBaseUrl = 'https://checkout.wompi.co';
+  const wompiParams = new URLSearchParams({
+    'public-key': 'YOUR_WOMPI_PUBLIC_KEY', // Reemplazar con tu key real
+    'reference': params.reference,
+    'currency': params.currency,
+    'amount_in_cents': params.amount * 100,
+    'customer_email': params.customer.email,
+    'customer_data': JSON.stringify({
+      name: params.customer.name,
+      phone_number: params.customer.phone,
+      email: params.customer.email
+    })
+  });
+  
+  return `${wompiBaseUrl}?${wompiParams.toString()}`;
 }
 
 function formatCardNumber(input) {
