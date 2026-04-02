@@ -1373,13 +1373,24 @@
               <input type="text" id="customerCity" placeholder="Bogotá, D.C." required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dark); color: white; font-size: 14px;">
             </div>
             <button type="button" class="adm-btn" onclick="continueToPaymentMethod()" style="margin-top: 10px">
-              CONTINUAR AL PAGO →
+              CONTINUAR AL ENVÍO →
             </button>
           </form>
         </div>
 
-        <!-- PASO 2: Método de Pago -->
+        <!-- PASO 2: Selección de Envío -->
         <div id="paymentStep2" class="payment-step" style="display: none">
+          <p style="font-size: 13px; color: var(--gray-text); margin-bottom: 16px">
+            📦 Selecciona tu método de envío
+          </p>
+          <div id="shippingOptionsContainer" style="display: flex; flex-direction: column; gap: 12px;">
+            <!-- Se renderizan dinámicamente desde JS -->
+          </div>
+        </div>
+
+        <!-- PASO 2B: Método de Pago -->
+        <div id="paymentStep2Payment" class="payment-step" style="display: none">
+          <div id="paymentSummary"></div>
           <p style="font-size: 13px; color: var(--gray-text); margin-bottom: 20px">
             💳 Elige cómo deseas pagar
           </p>

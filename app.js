@@ -43,10 +43,65 @@ const esc = (str) => {
   );
 };
 
+const formatPrice = (val) => {
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    minimumFractionDigits: 0,
+  }).format(val);
+};
+
 /* ── STATE ──────────────────────────────────────────────── */
 let PRODUCTS = [];
 let cart = loadCart();
 let activeFilter = "all";
+
+// Payment flow state
+let paymentData = {
+  customer: {
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+  },
+  shipping: {
+    method: '',
+    carrier: '',
+    cost: 0,
+  },
+  payment: {
+    method: '',
+  },
+};
+
+// Shipping options with different carriers
+const SHIPPING_OPTIONS = [
+  {
+    id: 'express',
+    name: 'Express 24-48h',
+    carrier: 'DHL Express',
+    cost: 29990,
+    days: '1-2 días',
+    description: 'Entrega rápida a todo el país'
+  },
+  {
+    id: 'standard',
+    name: 'Estándar 3-5 días',
+    carrier: 'Servientrega',
+    cost: 15990,
+    days: '3-5 días',
+    description: 'Envío económico y confiable'
+  },
+  {
+    id: 'pickup',
+    name: 'Recogida en tienda',
+    carrier: 'Winner Store',
+    cost: 0,
+    days: 'Hoy/Mañana',
+    description: 'Retira tu pedido en nuestro local'
+  },
+];
 
 async function fetchProducts() {
   try {
@@ -59,18 +114,28 @@ async function fetchProducts() {
   }
 }
 
-async function registerOnlineSale(method) {
+async function registerOnlineSale(methodName) {
   const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+  const shippingCost = paymentData.shipping.cost || 0;
+  const total = subtotal + shippingCost;
+  
   const saleData = {
     id: "ON" + Date.now().toString(36).toUpperCase(),
     timestamp: new Date().toISOString(),
     vendor: "Tienda Online",
-    client: "Cliente Web",
-    method: method,
+    client: paymentData.customer.name || "Cliente Web",
+    email: paymentData.customer.email,
+    phone: paymentData.customer.phone,
+    address: paymentData.customer.address,
+    city: paymentData.customer.city,
+    method: methodName,
     channel: "online",
     subtotal: subtotal,
+    shippingCost: shippingCost,
+    shippingMethod: paymentData.shipping.method,
+    shippingCarrier: paymentData.shipping.carrier,
     discount: 0,
-    total: subtotal,
+    total: total,
     items: cart.map((i) => ({ name: i.name, qty: i.qty, price: i.price, size: i.size || 'M' })),
   };
 
@@ -367,9 +432,6 @@ function renderCart() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   WHATSAPP CHECKOUT
-══════════════════════════════════════════════════════════ */
-/* ══════════════════════════════════════════════════════════
    PAYMENT & CHECKOUT FLOW
 ══════════════════════════════════════════════════════════ */
 const WHATSAPP_PHONE = "573166019030";
@@ -379,52 +441,20 @@ function openPaymentModal() {
     showToast("🛒 El carrito está vacío");
     return;
   }
+  
+  // Reset payment data
+  paymentData = {
+    customer: { name: '', email: '', phone: '', address: '', city: '' },
+    shipping: { method: '', carrier: '', cost: 0 },
+    payment: { method: '' },
+  };
+  
+  // Reset modal steps
+  showPaymentStep(1);
+  
   const overlay = document.getElementById("paymentModalOverlay");
   const modal = document.getElementById("paymentModal");
-  const container = document.getElementById("checkoutPayMethods");
-
-  // We use the methods defined here for the storefront checkout
-  const methods = [
-    {
-      name: "Nequi",
-      icon: "📱",
-      color: "#e91e8b",
-      bg: "rgba(233,30,139,0.12)",
-    },
-    {
-      name: "Daviplata",
-      icon: "📱",
-      color: "#ff6b00",
-      bg: "rgba(255,107,0,0.12)",
-    },
-    {
-      name: "Efectivo",
-      icon: "💵",
-      color: "#2ecc71",
-      bg: "rgba(46,204,113,0.12)",
-    },
-    {
-      name: "PSE / Transferencia",
-      icon: "🏦",
-      color: "#1e90ff",
-      bg: "rgba(30,144,255,0.12)",
-    },
-  ];
-
-  container.innerHTML = methods
-    .map(
-      (m) => `
-    <div class="pm-card enabled" style="border-color:${m.color}55; background:${m.bg}" onclick="selectPaymentMethod('${m.name}')">
-      <span class="pm-icon" style="background:${m.bg}; color:${m.color}">${m.icon}</span>
-      <div class="pm-info">
-        <div class="pm-name" style="color:${m.color}">${m.name}</div>
-        <div class="pm-status">✓ Seleccionar</div>
-      </div>
-    </div>
-  `,
-    )
-    .join("");
-
+  
   overlay.classList.add("open");
   modal.classList.add("open");
 }
@@ -434,24 +464,249 @@ function closePaymentModal() {
   document.getElementById("paymentModal").classList.remove("open");
 }
 
+function showPaymentStep(stepId) {
+  document.querySelectorAll(".payment-step").forEach(s => s.style.display = "none");
+  const element = document.getElementById("paymentStep" + stepId);
+  if (element) {
+    element.style.display = "block";
+  }
+}
+
+function continueToPaymentMethod() {
+  // Validate customer form
+  const name = document.getElementById("customerName").value.trim();
+  const email = document.getElementById("customerEmail").value.trim();
+  const phone = document.getElementById("customerPhone").value.trim();
+  const address = document.getElementById("customerAddress").value.trim();
+  const city = document.getElementById("customerCity").value.trim();
+  
+  if (!name || !email || !phone || !address || !city) {
+    showToast("⚠️ Por favor completa todos los campos");
+    return;
+  }
+  
+  // Validate email format
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showToast("⚠️ Email inválido");
+    return;
+  }
+  
+  // Store customer data
+  paymentData.customer = { name, email, phone, address, city };
+  
+  // Show shipping options (step 2)
+  showPaymentStep("2");
+  renderShippingOptions();
+}
+
+function renderShippingOptions() {
+  const container = document.getElementById("shippingOptionsContainer");
+  if (!container) {
+    // Create container if doesn't exist
+    const step2 = document.getElementById("paymentStep2");
+    const html = `<div id="shippingOptionsContainer" style="display: flex; flex-direction: column; gap: 12px;"></div>`;
+    step2.insertAdjacentHTML("beforeend", html);
+  }
+  
+  const shippingContainer = document.getElementById("shippingOptionsContainer");
+  
+  const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+  
+  shippingContainer.innerHTML = SHIPPING_OPTIONS.map(option => `
+    <div class="shipping-card" onclick="selectShippingMethod('${option.id}', ${option.cost})" 
+         style="padding: 16px; border: 2px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.3s; background: var(--dark);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <div>
+          <div style="font-weight: 600; color: white; font-size: 14px;">${option.name}</div>
+          <div style="color: var(--gray-text); font-size: 12px; margin-top: 4px;">${option.carrier} • ${option.days}</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-weight: bold; color: var(--accent); font-size: 16px;">${option.cost === 0 ? 'GRATIS' : formatPrice(option.cost)}</div>
+          ${option.cost > 0 ? `<div style="color: var(--gray-text); font-size: 11px;">+ ${formatPrice(option.cost)} al total</div>` : ''}
+        </div>
+      </div>
+      <div style="color: var(--gray-text); font-size: 12px;">${option.description}</div>
+    </div>
+  `).join("");
+}
+
+function selectShippingMethod(methodId, cost) {
+  const option = SHIPPING_OPTIONS.find(o => o.id === methodId);
+  if (!option) return;
+  
+  // Store shipping data
+  paymentData.shipping = {
+    method: option.name,
+    carrier: option.carrier,
+    cost: cost,
+  };
+  
+  // Update summary and move to payment methods
+  updatePaymentSummary();
+  showPaymentStep("2Payment");
+  renderPaymentMethods();
+}
+
+function updatePaymentSummary() {
+  const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+  const shipping = paymentData.shipping.cost || 0;
+  const total = subtotal + shipping;
+  
+  const summaryHtml = `
+    <div style="background: var(--gray); padding: 12px; border-radius: 6px; margin-bottom: 16px; font-size: 13px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+        <span>Subtotal:</span>
+        <span>${formatPrice(subtotal)}</span>
+      </div>
+      ${shipping > 0 ? `
+        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+          <span>Envío (${paymentData.shipping.method}):</span>
+          <span>${formatPrice(shipping)}</span>
+        </div>
+      ` : ''}
+      <div style="border-top: 1px solid var(--border); padding-top: 6px; display: flex; justify-content: space-between; font-weight: bold;">
+        <span>Total:</span>
+        <span style="color: var(--accent);">${formatPrice(total)}</span>
+      </div>
+    </div>
+  `;
+  
+  const placeholder = document.getElementById("paymentSummary");
+  if (placeholder) {
+    placeholder.innerHTML = summaryHtml;
+  }
+}
+
+function renderPaymentMethods() {
+  const container = document.getElementById("checkoutPayMethods");
+  const methods = [
+    { name: "Tarjeta de Crédito", icon: "💳", color: "#3498db", bg: "rgba(52,152,219,0.12)" },
+    { name: "Nequi", icon: "📱", color: "#e91e8b", bg: "rgba(233,30,139,0.12)" },
+    { name: "Daviplata", icon: "📱", color: "#ff6b00", bg: "rgba(255,107,0,0.12)" },
+    { name: "Efectivo", icon: "💵", color: "#2ecc71", bg: "rgba(46,204,113,0.12)" },
+    { name: "PSE / Transferencia", icon: "🏦", color: "#1e90ff", bg: "rgba(30,144,255,0.12)" },
+  ];
+
+  container.innerHTML = methods.map(m => `
+    <div class="pm-card enabled" style="border: 2px solid ${m.color}33; background: ${m.bg}; padding: 16px; border-radius: 6px; cursor: pointer; transition: all 0.3s;" 
+         onclick="selectPaymentMethod('${m.name}')">
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <span style="font-size: 32px;">${m.icon}</span>
+        <div>
+          <div class="pm-name" style="color: ${m.color}; font-weight: 600; font-size: 14px;">${m.name}</div>
+          <div class="pm-status" style="color: var(--gray-text); font-size: 12px;">✓ Seleccionar</div>
+        </div>
+      </div>
+    </div>
+  `).join("");
+}
+
 async function selectPaymentMethod(methodName) {
-  closePaymentModal();
+  paymentData.payment.method = methodName;
+  
+  // Show loading
   showToast("⌛ Procesando pedido...");
-
-  // 1. Registrar la venta en el servidor
+  
+  // Register the sale
   const success = await registerOnlineSale(methodName);
-
+  
   if (success) {
-    // 2. Mostrar éxito al usuario
     showToast("🏆 ¡Pedido realizado con éxito!");
-
-    // 3. Limpiar carrito
     cart = [];
     saveCart();
     renderCart();
+    closePaymentModal();
     closeCart();
   } else {
     showToast("❌ Error al procesar el pedido. Intenta de nuevo.");
+  }
+}
+
+function formatCardNumber(input) {
+  let value = input.value.replace(/\s/g, '');
+  let formatted = value.replace(/(\d{4})(?=\d)/g, '$1 ');
+  input.value = formatted;
+}
+
+function formatExpiry(input) {
+  let value = input.value.replace(/\D/g, '');
+  if (value.length >= 2) {
+    value = value.slice(0, 2) + '/' + value.slice(2, 4);
+  }
+  input.value = value;
+}
+
+function formatCVV(input) {
+  input.value = input.value.replace(/\D/g, '').slice(0, 4);
+}
+
+function formatPhone(input) {
+  let value = input.value.replace(/\D/g, '');
+  if (value.length > 0) {
+    value = '+57 ' + value.slice(-10).replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
+  }
+  input.value = value;
+}
+
+function backToPaymentMethod() {
+  showPaymentStep("2Payment");
+}
+
+function processPayment() {
+  const form = document.getElementById("cardForm");
+  if (!form.checkValidity()) {
+    showToast("⚠️ Por favor completa todos los campos");
+    return;
+  }
+  selectPaymentMethod(paymentData.payment.method);
+}
+
+function processPaymentPSE() {
+  const form = document.getElementById("pseForm");
+  if (!form.checkValidity()) {
+    showToast("⚠️ Por favor completa todos los campos");
+    return;
+  }
+  selectPaymentMethod(paymentData.payment.method);
+}
+
+function processPaymentNequi() {
+  const form = document.getElementById("nequiForm");
+  if (!form.checkValidity()) {
+    showToast("⚠️ Por favor completa todos los campos");
+    return;
+  }
+  selectPaymentMethod(paymentData.payment.method);
+}
+
+function processPaymentDaviplata() {
+  const form = document.getElementById("daviplataForm");
+  if (!form.checkValidity()) {
+    showToast("⚠️ Por favor completa todos los campos");
+    return;
+  }
+  selectPaymentMethod(paymentData.payment.method);
+}
+
+function processPaymentCash() {
+  const form = document.getElementById("cashForm");
+  if (!form.checkValidity()) {
+    showToast("⚠️ Por favor completa todos los campos");
+    return;
+  }
+  selectPaymentMethod(paymentData.payment.method);
+}
+
+function updateCashFields() {
+  const option = document.getElementById("cashDeliveryOption").value;
+  const info = document.getElementById("cashDeliveryInfo");
+  
+  if (option === "delivery") {
+    info.innerHTML = "ℹ️ Pagarás contra entrega, el repartidor llegará a tu domicilio";
+  } else if (option === "pickup") {
+    info.innerHTML = "ℹ️ Retira tu pedido en nuestro local y verifica antes de pagar";
+  } else {
+    info.innerHTML = "ℹ️ Selecciona una opción para continuar";
   }
 }
 
@@ -771,9 +1026,7 @@ function initHeroCounters() {
 /* ══════════════════════════════════════════════════════════
    UTILITY
 ══════════════════════════════════════════════════════════ */
-function formatPrice(num) {
-  return "$" + num.toLocaleString("es-CO");
-}
+/* formatPrice está definido al inicio del archivo */
 
 /* ══════════════════════════════════════════════════════════
    INIT
