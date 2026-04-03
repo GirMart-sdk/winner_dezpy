@@ -8,13 +8,29 @@ const API_URL = (() => {
   if (typeof window.API_URL === "string" && window.API_URL.trim()) {
     return window.API_URL.replace(/\/$/, "");
   }
+  
   // Si se abre el HTML desde archivo local, asumimos backend local.
-  const origin = window.location.origin.startsWith("file:")
-    ? "http://localhost:3000"
-    : window.location.origin;
+  if (window.location.origin.startsWith("file:")) {
+    // Preferir HTTPS en desarrollo remoto, HTTP solo en localhost
+    const protocol = localStorage.getItem("apiProtocol") || "http";
+    return `${protocol}://localhost:3000/api`;
+  }
+  
+  // En producción: usar HTTPS siempre
+  // En desarrollo: usar el mismo protocolo que la página
+  const origin = window.location.origin;
+  const apiProtocol = origin.startsWith("https") ? "https" : "http";
+  
   return `${origin.replace(/\/$/, "")}/api`;
 })();
+
 window.API_URL = API_URL;
+
+// Mensaje en consola
+console.log("🔗 API URL:", API_URL);
+if (API_URL.includes("http://")) {
+  console.warn("⚠️  WARNING: Usando HTTP. En producción usar HTTPS con certificado SSL/TLS");
+}
 
 // API key puede venir inyectada o caer al valor de desarrollo.
 const API_KEY =

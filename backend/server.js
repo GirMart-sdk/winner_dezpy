@@ -6,6 +6,9 @@
 'use strict';
 
 const express    = require('express');
+const https      = require('https');
+const http       = require('http');
+const fs         = require('fs');
 const path       = require('path');
 const cors       = require('cors');
 const bodyParser = require('body-parser');
@@ -53,6 +56,27 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
 }));
+
+/* ── Forzar HTTPS en producción ────────────────────────── */
+if (IS_PRODUCTION) {
+  app.use((req, res, next) => {
+    // Verificar si viene de proxy (CloudFlare, Heroku, etc) con encriptación
+    if (req.headers['x-forwarded-proto'] !== 'https' && req.protocol !== 'https') {
+      return res.redirect(301, `https://${req.hostname}${req.originalUrl}`);
+    }
+    next();
+  });
+  
+  // Agregar headers de seguridad
+  app.use((req, res, next) => {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.wompi.co https://www.pagofacil.com.co; style-src 'self' 'unsafe-inline'");
+    next();
+  });
+}
 
 app.use(bodyParser.json({ limit: '15mb' }));
 app.use(bodyParser.urlencoded({ limit: '15mb', extended: true }));
@@ -1247,8 +1271,59 @@ app.use((err, req, res, _next) => {
 });
 
 /* ── Arrancar servidor ───────────────────────────────────── */
-app.listen(PORT, () => {
-  console.log(`
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const HTTPS_PORT = process.env.HTTPS_PORT || 443;
+const HTTP_PORT = process.env.HTTP_PORT || 80;
+
+function startServer() {
+  if (IS_PRODUCTION && process.env.CERT_PATH && process.env.KEY_PATH) {
+    // PRODUCCIÓN: Usar HTTPS con redirección HTTP → HTTPS
+    try {
+      const options = {
+        key: fs.readFileSync(process.env.KEY_PATH),
+        cert: fs.readFileSync(process.env.CERT_PATH)
+      };
+      
+      // Crear aplicación para redireccionar HTTP → HTTPS
+      const redirectApp = express();
+      redirectApp.use((req, res) => {
+        res.redirect(`https://${req.hostname}${req.originalUrl}`);
+      });
+      
+      // Iniciar servidor HTTPS
+      https.createServer(options, app).listen(HTTPS_PORT, () => {
+        console.log(`
+╔══════════════════════════════════════════════╗
+║   WINNER STORE  —  Servidor v2.0 (HTTPS)    ║
+╠══════════════════════════════════════════════╣
+║   🔒  https://winner.com                     ║
+║   🔑  Admin: admin / winner2026              ║
+║   📦  API:   /api/products                  ║
+║   📊  Stats: /api/stats                     ║
+║   🛒  Feed:  /merchant-feed.csv             ║
+║   🌐  HTTP:  puerto ${HTTP_PORT} → HTTPS     ║
+╚══════════════════════════════════════════════╝`);
+      });
+      
+      // Iniciar servidor HTTP (redirige a HTTPS)
+      http.createServer(redirectApp).listen(HTTP_PORT, () => {
+        console.log(`   ↳ HTTP redirect activo en puerto ${HTTP_PORT}`);
+      });
+      
+    } catch (err) {
+      console.error('❌ Error cargando certificados SSL/TLS:', err.message);
+      console.log('ℹ️  Usando HTTP como alternativa');
+      fallbackToHttp();
+    }
+  } else {
+    // DESARROLLO: Usar HTTP simple
+    fallbackToHttp();
+  }
+}
+
+function fallbackToHttp() {
+  http.createServer(app).listen(PORT, () => {
+    console.log(`
 ╔══════════════════════════════════════════════╗
 ║   WINNER STORE  —  Servidor v2.0             ║
 ╠══════════════════════════════════════════════╣
@@ -1257,6 +1332,11 @@ app.listen(PORT, () => {
 ║   📦  API:   /api/products                  ║
 ║   📊  Stats: /api/stats                     ║
 ║   🛒  Feed:  /merchant-feed.csv             ║
-╚══════════════════════════════════════════════╝
-  `);
-});
+║                                              ║
+║   ⚠️  DESARROLLO: HTTP habilitado             ║
+║   En producción usar HTTPS                  ║
+╚══════════════════════════════════════════════╝`);
+  });
+}
+
+startServer();
