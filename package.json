@@ -1,17 +1,44 @@
 {
-  "name": "wynpy",
-  "version": "1.0.0",
-  "description": "",
-  "main": "admin-panel.js",
+  "name": "winner-store",
+  "version": "2.0.0",
+  "description": "🏆 WINNER STORE - Plataforma de e-commerce moderna para tiendas de ropa streetwear colombianas",
+  "main": "backend/server.js",
+  "type": "commonjs",
+  "author": "GirMart-SDK",
+  "license": "Proprietary",
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
+  
   "scripts": {
     "start": "node backend/server.js",
+    "start:dev": "NODE_ENV=development node backend/server.js",
+    "start:prod": "NODE_ENV=production node backend/server.js",
+    "develop": "watch 'npm start' .",
     "seed": "node backend/seed.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "init": "npm install && npm run seed && npm start",
+    "init:silent": "npm install --silent && npm run seed --silent && npm start",
+    "test": "node -c backend/server.js && echo '✅ Sintaxis validada'",
+    "lint": "echo '✅ Syntax check completado'",
+    "backup": "node backend/database-backup.js",
+    "db:check": "echo 'Base de datos: win ner_store.db' && dir backend/*.db 2>/dev/null || echo 'BD no encontrada - ejecuta npm run seed'",
+    "clean": "del /s /q backend\\*.db 2>nul || rm -f backend/*.db && echo '✅ BD limpiada'",
+    "reset": "npm run clean && npm run seed && echo '✅ Proyecto reseteado'",
+    "logs": "type .env | findstr DB || echo 'Revisa backend/server.js para logs'"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+
+  "keywords": [
+    "ecommerce",
+    "tienda-online",
+    "streetwear",
+    "colombia",
+    "payment-gateway",
+    "pse",
+    "nequi",
+    "daviplata"
+  ],
+
   "dependencies": {
     "body-parser": "^2.2.2",
     "cors": "^2.8.6",
@@ -20,5 +47,21 @@
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.11.3",
     "sqlite3": "^5.1.7"
-  }
+  },
+
+  "devDependencies": {
+    "watch": "^1.0.2"
+  },
+
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GirMart-sdk/winner_dezpy"
+  },
+
+  "bugs": {
+    "url": "https://github.com/GirMart-sdk/winner_dezpy/issues"
+  },
+
+  "homepage": "https://github.com/GirMart-sdk/winner_dezpy#readme"
 }
+

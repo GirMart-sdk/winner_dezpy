@@ -121,6 +121,8 @@ if (DB_TYPE === 'postgres') {
   initializeSchema();
 });
 
+}
+
 function initializeSchema() {
   /* ── PRODUCTS ──────────────────────────────────────────── */
   db.run(`

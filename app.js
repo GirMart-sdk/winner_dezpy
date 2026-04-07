@@ -8,19 +8,19 @@ const API_URL = (() => {
   if (typeof window.API_URL === "string" && window.API_URL.trim()) {
     return window.API_URL.replace(/\/$/, "");
   }
-  
+
   // Si se abre el HTML desde archivo local, asumimos backend local.
   if (window.location.origin.startsWith("file:")) {
     // Preferir HTTPS en desarrollo remoto, HTTP solo en localhost
     const protocol = localStorage.getItem("apiProtocol") || "http";
     return `${protocol}://localhost:3000/api`;
   }
-  
+
   // En producción: usar HTTPS siempre
   // En desarrollo: usar el mismo protocolo que la página
   const origin = window.location.origin;
   const apiProtocol = origin.startsWith("https") ? "https" : "http";
-  
+
   return `${origin.replace(/\/$/, "")}/api`;
 })();
 
@@ -29,7 +29,9 @@ window.API_URL = API_URL;
 // Mensaje en consola
 console.log("🔗 API URL:", API_URL);
 if (API_URL.includes("http://")) {
-  console.warn("⚠️  WARNING: Usando HTTP. En producción usar HTTPS con certificado SSL/TLS");
+  console.warn(
+    "⚠️  WARNING: Usando HTTP. En producción usar HTTPS con certificado SSL/TLS",
+  );
 }
 
 // API key puede venir inyectada o caer al valor de desarrollo.
@@ -75,19 +77,19 @@ let activeFilter = "all";
 // Payment flow state
 let paymentData = {
   customer: {
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: '',
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    city: "",
   },
   shipping: {
-    method: '',
-    carrier: '',
+    method: "",
+    carrier: "",
     cost: 0,
   },
   payment: {
-    method: '',
+    method: "",
   },
 };
 
@@ -96,67 +98,67 @@ let paymentData = {
 // ═══════════════════════════════════════════════════════
 const SHIPPING_OPTIONS = [
   {
-    id: 'servientrega_express',
-    name: 'Servientrega Express',
-    carrier: 'Servientrega',
+    id: "servientrega_express",
+    name: "Servientrega Express",
+    carrier: "Servientrega",
     cost: 18990,
-    days: '1-2 días',
-    icon: '🚀',
-    description: 'Express a ciudades principales. Trazabilidad en tiempo real.'
+    days: "1-2 días",
+    icon: "🚀",
+    description: "Express a ciudades principales. Trazabilidad en tiempo real.",
   },
   {
-    id: 'servientrega_standard',
-    name: 'Servientrega Estándar',
-    carrier: 'Servientrega',
+    id: "servientrega_standard",
+    name: "Servientrega Estándar",
+    carrier: "Servientrega",
     cost: 12990,
-    days: '3-5 días',
-    icon: '🚚',
-    description: 'Cobertura nacional. Entrega segura y confiable.'
+    days: "3-5 días",
+    icon: "🚚",
+    description: "Cobertura nacional. Entrega segura y confiable.",
   },
   {
-    id: '4_72',
-    name: '4-72 Express',
-    carrier: '4-72',
+    id: "4_72",
+    name: "4-72 Express",
+    carrier: "4-72",
     cost: 21990,
-    days: '1-2 días',
-    icon: '⚡',
-    description: 'Cobertura nacional. Entregas rápidas a todo el país.'
+    days: "1-2 días",
+    icon: "⚡",
+    description: "Cobertura nacional. Entregas rápidas a todo el país.",
   },
   {
-    id: 'coordinadora',
-    name: 'Coordinadora',
-    carrier: 'Coordinadora',
+    id: "coordinadora",
+    name: "Coordinadora",
+    carrier: "Coordinadora",
     cost: 14990,
-    days: '2-4 días',
-    icon: '📦',
-    description: 'Red nacional. Cobertura en ciudades principales.'
+    days: "2-4 días",
+    icon: "📦",
+    description: "Red nacional. Cobertura en ciudades principales.",
   },
   {
-    id: 'dhl_colombia',
-    name: 'DHL Colombia',
-    carrier: 'DHL Colombia',
+    id: "dhl_colombia",
+    name: "DHL Colombia",
+    carrier: "DHL Colombia",
     cost: 24990,
-    days: '1 día',
-    icon: '🌍',
-    description: 'Envíos internacionales y nacionales express.'
+    days: "1 día",
+    icon: "🌍",
+    description: "Envíos internacionales y nacionales express.",
   },
   {
-    id: 'pickup_bogota',
-    name: 'Recogida en Bogotá',
-    carrier: 'Winner Store (Bogotá)',
+    id: "pickup_bogota",
+    name: "Recogida en Bogotá",
+    carrier: "Winner Store (Bogotá)",
     cost: 0,
-    days: '2-4 horas',
-    icon: '🏪',
-    description: 'Recoge tu pedido en nuestro local de Bogotá.'
+    days: "2-4 horas",
+    icon: "🏪",
+    description: "Recoge tu pedido en nuestro local de Bogotá.",
   },
   {
-    id: 'pickup_medellin',
-    name: 'Recogida en Medellín',
-    carrier: 'Winner Store (Medellín)',
+    id: "pickup_medellin",
+    name: "Recogida en Medellín",
+    carrier: "Winner Store (Medellín)",
     cost: 0,
-    days: '2-4 horas',
-    icon: '🏪',
-    description: 'Recoge tu pedido en nuestro local de Medellín.'
+    days: "2-4 horas",
+    icon: "🏪",
+    description: "Recoge tu pedido en nuestro local de Medellín.",
   },
 ];
 
@@ -165,40 +167,40 @@ const SHIPPING_OPTIONS = [
 // ═══════════════════════════════════════════════════════
 const PAYMENT_GATEWAYS = {
   NEQUI: {
-    name: 'Nequi',
-    icon: '📱',
-    color: '#e91e8b',
-    url: 'https://www.equifax.com.co/nequi',
-    instructions: 'Te enviaremos un link de pago seguro via WhatsApp'
+    name: "Nequi",
+    icon: "📱",
+    color: "#e91e8b",
+    url: "https://www.equifax.com.co/nequi",
+    instructions: "Te enviaremos un link de pago seguro via WhatsApp",
   },
   DAVIPLATA: {
-    name: 'Daviplata',
-    icon: '📱',
-    color: '#ff6b00',
-    url: 'https://www.davivienda.com/daviplata',
-    instructions: 'Recibirás instrucciones de pago por WhatsApp'
+    name: "Daviplata",
+    icon: "📱",
+    color: "#ff6b00",
+    url: "https://www.davivienda.com/daviplata",
+    instructions: "Recibirás instrucciones de pago por WhatsApp",
   },
   PSE: {
-    name: 'PSE / Transferencia',
-    icon: '🏦',
-    color: '#1e90ff',
-    url: 'https://www.pagofacil.com.co',
-    instructions: 'Serás redirigido a PSE para confirmar tu pago'
+    name: "PSE / Transferencia",
+    icon: "🏦",
+    color: "#1e90ff",
+    url: "https://www.pagofacil.com.co",
+    instructions: "Serás redirigido a PSE para confirmar tu pago",
   },
   CARD: {
-    name: 'Tarjeta de Crédito/Débito',
-    icon: '💳',
-    color: '#3498db',
-    url: 'https://checkout.wompi.co',
-    instructions: 'Ingresa los datos de tu tarjeta de forma encriptada'
+    name: "Tarjeta de Crédito/Débito",
+    icon: "💳",
+    color: "#3498db",
+    url: "https://checkout.wompi.co",
+    instructions: "Ingresa los datos de tu tarjeta de forma encriptada",
   },
   CASH: {
-    name: 'Efectivo',
-    icon: '💵',
-    color: '#2ecc71',
+    name: "Efectivo",
+    icon: "💵",
+    color: "#2ecc71",
     url: null,
-    instructions: 'Pagarás contra entrega o en recogida en tienda'
-  }
+    instructions: "Pagarás contra entrega o en recogida en tienda",
+  },
 };
 
 async function fetchProducts() {
@@ -216,7 +218,7 @@ async function registerOnlineSale(methodName) {
   const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
   const shippingCost = paymentData.shipping.cost || 0;
   const total = subtotal + shippingCost;
-  
+
   const saleData = {
     id: "ON" + Date.now().toString(36).toUpperCase(),
     timestamp: new Date().toISOString(),
@@ -234,20 +236,25 @@ async function registerOnlineSale(methodName) {
     shippingCarrier: paymentData.shipping.carrier,
     discount: 0,
     total: total,
-    items: cart.map((i) => ({ name: i.name, qty: i.qty, price: i.price, size: i.size || 'M' })),
+    items: cart.map((i) => ({
+      name: i.name,
+      qty: i.qty,
+      price: i.price,
+      size: i.size || "M",
+    })),
   };
 
   try {
-    console.log('📤 Guardando venta online:', saleData);
+    console.log("📤 Guardando venta online:", saleData);
     const res = await apiFetch(`${API_URL}/sales`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(saleData),
     });
-    
+
     const responseText = await res.text();
     console.log(`📥 Respuesta (${res.status}):`, responseText);
-    
+
     let result;
     try {
       result = JSON.parse(responseText);
@@ -255,12 +262,12 @@ async function registerOnlineSale(methodName) {
       console.error("❌ Error parsing response:", responseText);
       return false;
     }
-    
+
     if (result.success) {
-      console.log('✅ Venta registrada en admin:', result.id);
+      console.log("✅ Venta registrada en admin:", result.id);
       return true;
     } else {
-      console.error('⚠️ Server returned error:', result.error);
+      console.error("⚠️ Server returned error:", result.error);
       return false;
     }
   } catch (err) {
@@ -539,20 +546,20 @@ function openPaymentModal() {
     showToast("🛒 El carrito está vacío");
     return;
   }
-  
+
   // Reset payment data
   paymentData = {
-    customer: { name: '', email: '', phone: '', address: '', city: '' },
-    shipping: { method: '', carrier: '', cost: 0 },
-    payment: { method: '' },
+    customer: { name: "", email: "", phone: "", address: "", city: "" },
+    shipping: { method: "", carrier: "", cost: 0 },
+    payment: { method: "" },
   };
-  
+
   // Reset modal steps
   showPaymentStep(1);
-  
+
   const overlay = document.getElementById("paymentModalOverlay");
   const modal = document.getElementById("paymentModal");
-  
+
   overlay.classList.add("open");
   modal.classList.add("open");
 }
@@ -563,7 +570,9 @@ function closePaymentModal() {
 }
 
 function showPaymentStep(stepId) {
-  document.querySelectorAll(".payment-step").forEach(s => s.style.display = "none");
+  document
+    .querySelectorAll(".payment-step")
+    .forEach((s) => (s.style.display = "none"));
   const element = document.getElementById("paymentStep" + stepId);
   if (element) {
     element.style.display = "block";
@@ -577,21 +586,21 @@ function continueToPaymentMethod() {
   const phone = document.getElementById("customerPhone").value.trim();
   const address = document.getElementById("customerAddress").value.trim();
   const city = document.getElementById("customerCity").value.trim();
-  
+
   if (!name || !email || !phone || !address || !city) {
     showToast("⚠️ Por favor completa todos los campos");
     return;
   }
-  
+
   // Validate email format
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     showToast("⚠️ Email inválido");
     return;
   }
-  
+
   // Store customer data
   paymentData.customer = { name, email, phone, address, city };
-  
+
   // Show shipping options (step 2)
   showPaymentStep("2");
   renderShippingOptions();
@@ -605,12 +614,13 @@ function renderShippingOptions() {
     const html = `<div id="shippingOptionsContainer" style="display: flex; flex-direction: column; gap: 12px;"></div>`;
     step2.insertAdjacentHTML("beforeend", html);
   }
-  
+
   const shippingContainer = document.getElementById("shippingOptionsContainer");
-  
+
   const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
-  
-  shippingContainer.innerHTML = SHIPPING_OPTIONS.map(option => `
+
+  shippingContainer.innerHTML = SHIPPING_OPTIONS.map(
+    (option) => `
     <div class="shipping-card" onclick="selectShippingMethod('${option.id}', ${option.cost})" 
          style="padding: 16px; border: 2px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.3s; background: var(--dark); hover: opacity 0.9;">
       <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
@@ -621,25 +631,26 @@ function renderShippingOptions() {
           <div style="color: var(--gray-text); font-size: 12px; margin-top: 6px;">${option.description}</div>
         </div>
         <div style="text-align: right; min-width: 120px;">
-          <div style="font-weight: bold; color: var(--accent); font-size: 16px;">${option.cost === 0 ? 'GRATIS' : formatPrice(option.cost)}</div>
+          <div style="font-weight: bold; color: var(--accent); font-size: 16px;">${option.cost === 0 ? "GRATIS" : formatPrice(option.cost)}</div>
           ${option.cost > 0 ? `<div style="color: var(--gray-text); font-size: 11px;">+ ${formatPrice(option.cost)}</div>` : '<div style="color: var(--accent); font-size: 11px;">Sin costo</div>'}
         </div>
       </div>
     </div>
-  `).join("");
+  `,
+  ).join("");
 }
 
 function selectShippingMethod(methodId, cost) {
-  const option = SHIPPING_OPTIONS.find(o => o.id === methodId);
+  const option = SHIPPING_OPTIONS.find((o) => o.id === methodId);
   if (!option) return;
-  
+
   // Store shipping data
   paymentData.shipping = {
     method: option.name,
     carrier: option.carrier,
     cost: cost,
   };
-  
+
   // Update summary and move to payment methods
   updatePaymentSummary();
   showPaymentStep("2Payment");
@@ -650,26 +661,30 @@ function updatePaymentSummary() {
   const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
   const shipping = paymentData.shipping.cost || 0;
   const total = subtotal + shipping;
-  
+
   const summaryHtml = `
     <div style="background: var(--gray); padding: 12px; border-radius: 6px; margin-bottom: 16px; font-size: 13px;">
       <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
         <span>Subtotal:</span>
         <span>${formatPrice(subtotal)}</span>
       </div>
-      ${shipping > 0 ? `
+      ${
+        shipping > 0
+          ? `
         <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
           <span>Envío (${paymentData.shipping.method}):</span>
           <span>${formatPrice(shipping)}</span>
         </div>
-      ` : ''}
+      `
+          : ""
+      }
       <div style="border-top: 1px solid var(--border); padding-top: 6px; display: flex; justify-content: space-between; font-weight: bold;">
         <span>Total:</span>
         <span style="color: var(--accent);">${formatPrice(total)}</span>
       </div>
     </div>
   `;
-  
+
   const placeholder = document.getElementById("paymentSummary");
   if (placeholder) {
     placeholder.innerHTML = summaryHtml;
@@ -679,24 +694,56 @@ function updatePaymentSummary() {
 function renderPaymentMethods() {
   const container = document.getElementById("checkoutPayMethods");
   const methods = [
-    { name: "Tarjeta de Crédito", icon: "💳", color: "#3498db", bg: "rgba(52,152,219,0.12)", info: "Visa, Mastercard, Amex" },
-    { name: "Nequi", icon: "📱", color: "#e91e8b", bg: "rgba(233,30,139,0.12)", info: "App bancaria móvil" },
-    { name: "Daviplata", icon: "📱", color: "#ff6b00", bg: "rgba(255,107,0,0.12)", info: "Billetera W Davivienda" },
-    { name: "Efectivo", icon: "💵", color: "#2ecc71", bg: "rgba(46,204,113,0.12)", info: "Contra entrega o en tienda" },
-    { name: "PSE / Transferencia", icon: "🏦", color: "#1e90ff", bg: "rgba(30,144,255,0.12)", info: "Transferencia bancaria" },
+    {
+      name: "Tarjeta de Crédito",
+      icon: "💳",
+      color: "#3498db",
+      bg: "rgba(52,152,219,0.12)",
+      info: "Visa, Mastercard, Amex",
+    },
+    {
+      name: "Nequi",
+      icon: "📱",
+      color: "#e91e8b",
+      bg: "rgba(233,30,139,0.12)",
+      info: "App bancaria móvil",
+    },
+    {
+      name: "Daviplata",
+      icon: "📱",
+      color: "#ff6b00",
+      bg: "rgba(255,107,0,0.12)",
+      info: "Billetera W Davivienda",
+    },
+    {
+      name: "Efectivo",
+      icon: "💵",
+      color: "#2ecc71",
+      bg: "rgba(46,204,113,0.12)",
+      info: "Contra entrega o en tienda",
+    },
+    {
+      name: "PSE / Transferencia",
+      icon: "🏦",
+      color: "#1e90ff",
+      bg: "rgba(30,144,255,0.12)",
+      info: "Transferencia bancaria",
+    },
   ];
 
-  let html = '';
-  
+  let html = "";
+
   // Add info banner
   html += `
     <div style="background: rgba(52,152,219,0.1); border-left: 3px solid #3498db; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 12px; color: var(--gray-text);">
       🔒 <strong>Pago Seguro:</strong> Tu información está protegida y encriptada. Serás redirigido a la plataforma de pago de tu banco.
     </div>
   `;
-  
+
   // Add payment methods
-  html += methods.map(m => `
+  html += methods
+    .map(
+      (m) => `
     <div class="pm-card enabled" style="border: 2px solid ${m.color}33; background: ${m.bg}; padding: 16px; border-radius: 6px; cursor: pointer; transition: all 0.3s;" 
          onmouseover="this.style.borderColor='${m.color}'; this.style.opacity='0.9';"
          onmouseout="this.style.borderColor='${m.color}33'; this.style.opacity='1';"
@@ -710,36 +757,41 @@ function renderPaymentMethods() {
         <div style="color: ${m.color}; font-size: 20px;">→</div>
       </div>
     </div>
-  `).join("");
-  
+  `,
+    )
+    .join("");
+
   container.innerHTML = html;
 }
 
 async function selectPaymentMethod(methodName) {
   paymentData.payment.method = methodName;
-  
+
   // Show loading
   showToast("⌛ Procesando pedido...");
-  
+
   // Register the sale
   const success = await registerOnlineSale(methodName);
-  
+
   if (success) {
     // Save sale ID for reference
     const saleId = "ON" + Date.now().toString(36).toUpperCase();
     localStorage.setItem("lastSaleId", saleId);
-    
+
     // Store payment data for post-confirmation
-    localStorage.setItem("paymentData", JSON.stringify({
-      method: methodName,
-      customer: paymentData.customer,
-      shipping: paymentData.shipping,
-      timestamp: new Date().toISOString()
-    }));
-    
+    localStorage.setItem(
+      "paymentData",
+      JSON.stringify({
+        method: methodName,
+        customer: paymentData.customer,
+        shipping: paymentData.shipping,
+        timestamp: new Date().toISOString(),
+      }),
+    );
+
     // Redirect to payment gateway
     redirectToPaymentGateway(methodName);
-    
+
     // Clear UI
     setTimeout(() => {
       cart = [];
@@ -756,54 +808,54 @@ async function selectPaymentMethod(methodName) {
 function redirectToPaymentGateway(methodName) {
   const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
   const total = subtotal + paymentData.shipping.cost;
-  
+
   // Map display names to gateway keys
   const methodMap = {
-    'Tarjeta de Crédito': 'CARD',
-    'Nequi': 'NEQUI',
-    'Daviplata': 'DAVIPLATA',
-    'Efectivo': 'CASH',
-    'PSE / Transferencia': 'PSE'
+    "Tarjeta de Crédito": "CARD",
+    Nequi: "NEQUI",
+    Daviplata: "DAVIPLATA",
+    Efectivo: "CASH",
+    "PSE / Transferencia": "PSE",
   };
-  
+
   const gatewayKey = methodMap[methodName];
   const gateway = PAYMENT_GATEWAYS[gatewayKey];
-  
+
   if (!gateway) {
     showToast("❌ Método de pago no reconocido");
     return;
   }
-  
+
   // Build payment parameters
   const paymentParams = {
     amount: total,
-    currency: 'COP',
+    currency: "COP",
     customer: {
       name: paymentData.customer.name,
       email: paymentData.customer.email,
-      phone: paymentData.customer.phone
+      phone: paymentData.customer.phone,
     },
     reference: "ON" + Date.now().toString(36).toUpperCase(),
     description: `Compra Winner - ${paymentData.customer.name}`,
     returnUrl: `${window.location.origin}?payment=success`,
-    cancelUrl: `${window.location.origin}?payment=cancel`
+    cancelUrl: `${window.location.origin}?payment=cancel`,
   };
-  
+
   // Handle different payment methods
   switch (gatewayKey) {
-    case 'NEQUI':
+    case "NEQUI":
       handleNequiPayment(paymentParams);
       break;
-    case 'DAVIPLATA':
+    case "DAVIPLATA":
       handleDaviplataPayment(paymentParams);
       break;
-    case 'PSE':
+    case "PSE":
       handlePSEPayment(paymentParams);
       break;
-    case 'CARD':
+    case "CARD":
       handleCardPayment(paymentParams);
       break;
-    case 'CASH':
+    case "CASH":
       handleCashPayment(paymentParams);
       break;
     default:
@@ -815,10 +867,10 @@ function handleNequiPayment(params) {
   // Enviar por WhatsApp con link de pago
   const message = `Hola, para confirmar tu compra de $${formatPrice(params.amount)}, por favor accede a: ${window.location.origin}/pagar?ref=${params.reference}`;
   const whatsappUrl = `https://wa.me/+573166019030?text=${encodeURIComponent(message)}`;
-  
+
   showToast("📱 Abriendo WhatsApp para confirmar pago...");
   setTimeout(() => {
-    window.open(whatsappUrl, '_blank');
+    window.open(whatsappUrl, "_blank");
   }, 500);
 }
 
@@ -826,17 +878,17 @@ function handleDaviplataPayment(params) {
   // Enviar por WhatsApp con instrucciones
   const message = `Hola, para pagar tu compra de $${formatPrice(params.amount)} con Daviplata, por favor responde este mensaje. Te enviaremos las instrucciones.`;
   const whatsappUrl = `https://wa.me/+573166019030?text=${encodeURIComponent(message)}`;
-  
+
   showToast("📱 Abriendo WhatsApp para instrucciones...");
   setTimeout(() => {
-    window.open(whatsappUrl, '_blank');
+    window.open(whatsappUrl, "_blank");
   }, 500);
 }
 
 function handlePSEPayment(params) {
   // Redirigir a PSE
   const pseUrl = buildPSEUrl(params);
-  
+
   showToast("🏦 Redirigiendo a PSE...");
   setTimeout(() => {
     window.location.href = pseUrl;
@@ -846,7 +898,7 @@ function handlePSEPayment(params) {
 function handleCardPayment(params) {
   // Redirigir a Wompi o similar
   const wompiUrl = buildWompiUrl(params);
-  
+
   showToast("💳 Redirigiendo a plataforma de pago...");
   setTimeout(() => {
     window.location.href = wompiUrl;
@@ -872,19 +924,19 @@ function handleCashPayment(params) {
     
     WhatsApp de soporte: https://wa.me/+573166019030
   `;
-  
+
   showToast("💵 Instrucciones enviadas a tu email y WhatsApp");
-  
+
   // Enviar por WhatsApp
   const whatsappUrl = `https://wa.me/+573166019030?text=${encodeURIComponent(`Hola, realizé una compra de $${formatPrice(params.amount)} para pagar en efectivo. Mi referencia es ${params.reference}`)}`;
   setTimeout(() => {
-    window.open(whatsappUrl, '_blank');
+    window.open(whatsappUrl, "_blank");
   }, 500);
 }
 
 function buildPSEUrl(params) {
   // URL base de PSE (requiere integración real con tu proveedor)
-  const pseBaseUrl = 'https://www.pagofacil.com.co/checkout';
+  const pseBaseUrl = "https://www.pagofacil.com.co/checkout";
   const pseParams = new URLSearchParams({
     amount: params.amount,
     currency: params.currency,
@@ -894,53 +946,54 @@ function buildPSEUrl(params) {
     email: params.customer.email,
     phone: params.customer.phone,
     returnUrl: params.returnUrl,
-    cancelUrl: params.cancelUrl
+    cancelUrl: params.cancelUrl,
   });
-  
+
   return `${pseBaseUrl}?${pseParams.toString()}`;
 }
 
 function buildWompiUrl(params) {
   // URL de Wompi para checkout (requiere integración real)
-  const wompiBaseUrl = 'https://checkout.wompi.co';
+  const wompiBaseUrl = "https://checkout.wompi.co";
   const wompiParams = new URLSearchParams({
-    'public-key': 'YOUR_WOMPI_PUBLIC_KEY', // Reemplazar con tu key real
-    'reference': params.reference,
-    'currency': params.currency,
-    'amount_in_cents': params.amount * 100,
-    'customer_email': params.customer.email,
-    'customer_data': JSON.stringify({
+    "public-key": "YOUR_WOMPI_PUBLIC_KEY", // Reemplazar con tu key real
+    reference: params.reference,
+    currency: params.currency,
+    amount_in_cents: params.amount * 100,
+    customer_email: params.customer.email,
+    customer_data: JSON.stringify({
       name: params.customer.name,
       phone_number: params.customer.phone,
-      email: params.customer.email
-    })
+      email: params.customer.email,
+    }),
   });
-  
+
   return `${wompiBaseUrl}?${wompiParams.toString()}`;
 }
 
 function formatCardNumber(input) {
-  let value = input.value.replace(/\s/g, '');
-  let formatted = value.replace(/(\d{4})(?=\d)/g, '$1 ');
+  let value = input.value.replace(/\s/g, "");
+  let formatted = value.replace(/(\d{4})(?=\d)/g, "$1 ");
   input.value = formatted;
 }
 
 function formatExpiry(input) {
-  let value = input.value.replace(/\D/g, '');
+  let value = input.value.replace(/\D/g, "");
   if (value.length >= 2) {
-    value = value.slice(0, 2) + '/' + value.slice(2, 4);
+    value = value.slice(0, 2) + "/" + value.slice(2, 4);
   }
   input.value = value;
 }
 
 function formatCVV(input) {
-  input.value = input.value.replace(/\D/g, '').slice(0, 4);
+  input.value = input.value.replace(/\D/g, "").slice(0, 4);
 }
 
 function formatPhone(input) {
-  let value = input.value.replace(/\D/g, '');
+  let value = input.value.replace(/\D/g, "");
   if (value.length > 0) {
-    value = '+57 ' + value.slice(-10).replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
+    value =
+      "+57 " + value.slice(-10).replace(/(\d{3})(\d{3})(\d{4})/, "$1 $2 $3");
   }
   input.value = value;
 }
@@ -997,11 +1050,13 @@ function processPaymentCash() {
 function updateCashFields() {
   const option = document.getElementById("cashDeliveryOption").value;
   const info = document.getElementById("cashDeliveryInfo");
-  
+
   if (option === "delivery") {
-    info.innerHTML = "ℹ️ Pagarás contra entrega, el repartidor llegará a tu domicilio";
+    info.innerHTML =
+      "ℹ️ Pagarás contra entrega, el repartidor llegará a tu domicilio";
   } else if (option === "pickup") {
-    info.innerHTML = "ℹ️ Retira tu pedido en nuestro local y verifica antes de pagar";
+    info.innerHTML =
+      "ℹ️ Retira tu pedido en nuestro local y verifica antes de pagar";
   } else {
     info.innerHTML = "ℹ️ Selecciona una opción para continuar";
   }
@@ -1324,7 +1379,6 @@ function initHeroCounters() {
    UTILITY
 ══════════════════════════════════════════════════════════ */
 /* formatPrice está definido al inicio del archivo */
-
 /* ══════════════════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════════════════ */

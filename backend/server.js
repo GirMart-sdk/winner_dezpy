@@ -21,6 +21,7 @@ const db = require('./database');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 /* ── Configuración de seguridad ──────────────────────────── */
 const API_KEY     = process.env.API_KEY     || 'dev-api-key';
@@ -1271,7 +1272,6 @@ app.use((err, req, res, _next) => {
 });
 
 /* ── Arrancar servidor ───────────────────────────────────── */
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const HTTPS_PORT = process.env.HTTPS_PORT || 443;
 const HTTP_PORT = process.env.HTTP_PORT || 80;
 

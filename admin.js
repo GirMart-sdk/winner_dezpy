@@ -139,10 +139,6 @@ const PAY_METHODS_CONFIG = [
   },
 ];
 
-let admPayments = [];
-let admPayMethods = [...PAY_METHODS_CONFIG];
-let admInventory = [];
-
 try {
   const pData = localStorage.getItem("winner_payments");
   if (pData) {
