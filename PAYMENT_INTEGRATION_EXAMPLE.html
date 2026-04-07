@@ -70,9 +70,10 @@
     { name: 'Producto 2', qty: 1, price: 149990, size: 'L' }
   ];
 
-  let window.customerData = null;
-  let window.selectedPaymentMethod = null;
-  let window.shippingData = { cost: 15000, neighborhood: 'Bogotá' };
+  // Variables globales (sin "let" ya que son asignacion a window)
+  window.customerData = null;
+  window.selectedPaymentMethod = null;
+  window.shippingData = { cost: 15000, neighborhood: 'Bogotá' };
 
   // ──────────────────────────────────────────────────────────
   // ABRIR MODAL DE PAGOS
