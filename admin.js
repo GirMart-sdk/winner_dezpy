@@ -987,3 +987,567 @@ function toggleCameraScan() {
       });
   }
 }
+
+/* ══════════════════════════════════════════════════════════
+   POS PAYMENT MODAL — SISTEMA DE PAGOS
+══════════════════════════════════════════════════════════ */
+
+// Estado del pago actual
+let posPendingPayment = {
+  total: 0,
+  method: null,
+  methodData: {},
+  items: [],
+  vendor: "",
+  client: ""
+};
+
+function openPOSPaymentModal() {
+  // Validar que hay items en la venta
+  const posItems = document.getElementById("posItems");
+  const posEmptyMsg = posItems?.querySelector(".pos-empty");
+  
+  if (posEmptyMsg && posEmptyMsg.style.display !== "none") {
+    showAdminToast("⚠️ Agrega productos a la venta primero");
+    return;
+  }
+
+  // Obtener total
+  const posTotal = document.getElementById("posTotal")?.textContent || "$0";
+  const totalAmount = parseFloat(posTotal.replace(/[^\d.-]/g, ""));
+  
+  if (!totalAmount || totalAmount <= 0) {
+    showAdminToast("⚠️ Total inválido");
+    return;
+  }
+
+  // Obtener datos del vendedor y cliente
+  const posVendor = document.getElementById("posVendor")?.value || "Vendedor";
+  const posClient = document.getElementById("posClient")?.value || "Cliente";
+
+  // Guardar estado actual
+  posPendingPayment = {
+    total: totalAmount,
+    method: null,
+    methodData: {},
+    items: [],
+    vendor: posVendor,
+    client: posClient
+  };
+
+  // Extraer items de la venta
+  const itemRows = posItems?.querySelectorAll(".pos-item-row") || [];
+  itemRows.forEach(row => {
+    const nameEl = row.querySelector("[data-item-name]");
+    const qtyEl = row.querySelector("[data-item-qty]");
+    const priceEl = row.querySelector("[data-item-price]");
+    
+    if (nameEl && qtyEl && priceEl) {
+      posPendingPayment.items.push({
+        name: nameEl.textContent,
+        qty: parseInt(qtyEl.textContent) || 1,
+        price: parseFloat(priceEl.textContent.replace(/[^\d.-]/g, "")) || 0
+      });
+    }
+  });
+
+  // Mostrar modal
+  document.getElementById("posPayOverlay").classList.add("open");
+  document.getElementById("posPayModal").classList.add("open");
+  
+  // Mostrar Step 1 - Seleccionar método
+  showPOSPayStep(1);
+  renderPOSPaymentMethods();
+}
+
+function closePOSPaymentModal() {
+  document.getElementById("posPayOverlay").classList.remove("open");
+  document.getElementById("posPayModal").classList.remove("open");
+}
+
+function showPOSPayStep(step) {
+  const step1 = document.getElementById("posPayStep1");
+  const step2 = document.getElementById("posPayStep2");
+  const backBtn = document.getElementById("posPayBackBtn");
+  const confirmBtn = document.getElementById("posPayConfirmBtn");
+  
+  if (step === 1) {
+    step1.style.display = "block";
+    step2.style.display = "none";
+    backBtn.style.display = "none";
+    confirmBtn.textContent = "CONFIRMAR PAGO";
+  } else if (step === 2) {
+    step1.style.display = "none";
+    step2.style.display = "block";
+    backBtn.style.display = "block";
+    confirmBtn.textContent = "✓ COMPLETAR PAGO";
+  }
+}
+
+function renderPOSPaymentMethods() {
+  const grid = document.getElementById("posPayMethodsGrid");
+  if (!grid) return;
+
+  // Filtrar métodos habilitados
+  const enabledMethods = PAY_METHODS_CONFIG.filter(m => m.enabled);
+  
+  grid.innerHTML = enabledMethods.map(method => `
+    <div class="pay-method-card" onclick="selectPOSPaymentMethod('${method.id}')" 
+         style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.3s;background:var(--gray2)">
+      <span style="font-size:32px;margin-bottom:8px">${method.icon}</span>
+      <span style="font-size:13px;font-weight:600;color:var(--white);text-align:center">${method.name}</span>
+    </div>
+  `).join("");
+}
+
+function selectPOSPaymentMethod(methodId) {
+  const method = PAY_METHODS_CONFIG.find(m => m.id === methodId);
+  if (!method) return;
+
+  posPendingPayment.method = method;
+  
+  // Mostrar step 2
+  showPOSPayStep(2);
+  renderPOSPaymentForm();
+  
+  // Actualizar total visible
+  document.getElementById("posPayTotal").textContent = admFmt(posPendingPayment.total);
+}
+
+function renderPOSPaymentForm() {
+  const formCash = document.getElementById("posPayFormCash");
+  const formCard = document.getElementById("posPayFormCard");
+  const formMobile = document.getElementById("posPayFormMobile");
+  
+  // Ocultar todos
+  formCash.style.display = "none";
+  formCard.style.display = "none";
+  formMobile.style.display = "none";
+  
+  const method = posPendingPayment.method;
+
+  if (method.id === "efectivo") {
+    formCash.style.display = "block";
+    document.getElementById("posPayCashReceived").value = "";
+    document.getElementById("posPayCashReceived").addEventListener("input", updatePOSCashChange);
+  } else if (method.id === "nequi" || method.id === "daviplata") {
+    formMobile.style.display = "block";
+    document.getElementById("posPayMobilePhone").value = "";
+    document.getElementById("posPayMobileRef").value = "";
+  } else {
+    formCard.style.display = "block";
+    document.getElementById("posPayCardRef").value = "";
+    document.getElementById("posPayCardName").value = "";
+  }
+}
+
+function updatePOSCashChange() {
+  const received = parseFloat(document.getElementById("posPayCashReceived").value) || 0;
+  const total = posPendingPayment.total;
+  const change = received - total;
+  
+  document.getElementById("posPayCashChange").textContent = admFmt(change >= 0 ? change : 0);
+}
+
+function posPayBackToMethods() {
+  posPendingPayment.method = null;
+  showPOSPayStep(1);
+}
+
+async function confirmPOSPayment() {
+  const method = posPendingPayment.method;
+  
+  if (!method) {
+    showAdminToast("⚠️ Selecciona un método de pago");
+    return;
+  }
+
+  // Validar según el método
+  if (method.id === "efectivo") {
+    const received = parseFloat(document.getElementById("posPayCashReceived").value);
+    if (!received || received < posPendingPayment.total) {
+      showAdminToast("⚠️ Monto insuficiente");
+      return;
+    }
+    posPendingPayment.methodData = {
+      type: "cash",
+      received: received,
+      change: received - posPendingPayment.total
+    };
+  } else if (method.id === "nequi" || method.id === "daviplata") {
+    const phone = document.getElementById("posPayMobilePhone").value.trim();
+    const ref = document.getElementById("posPayMobileRef").value.trim();
+    
+    if (!phone || !ref) {
+      showAdminToast("⚠️ Completa teléfono y referencia");
+      return;
+    }
+    posPendingPayment.methodData = {
+      type: "mobile",
+      phone: phone,
+      reference: ref
+    };
+  } else {
+    const ref = document.getElementById("posPayCardRef").value.trim();
+    const name = document.getElementById("posPayCardName").value.trim();
+    
+    if (!ref) {
+      showAdminToast("⚠️ Ingresa la referencia de la transacción");
+      return;
+    }
+    posPendingPayment.methodData = {
+      type: "transfer",
+      reference: ref,
+      name: name || "Cliente"
+    };
+  }
+
+  // Guardar la venta
+  await savePOSSale();
+}
+
+async function savePOSSale() {
+  try {
+    const now = new Date();
+    const saleData = {
+      id: "POS" + Date.now().toString(36).toUpperCase(),
+      timestamp: now.toISOString(),
+      vendor: posPendingPayment.vendor || "Vendedor",
+      client: posPendingPayment.client || "Cliente",
+      method: posPendingPayment.method.name,
+      channel: "fisica",
+      subtotal: posPendingPayment.total,
+      shippingCost: 0,
+      shippingMethod: "Entrega física",
+      shippingCarrier: "Local",
+      discount: 0,
+      total: posPendingPayment.total,
+      items: posPendingPayment.items,
+      paymentMethod: posPendingPayment.method.id,
+      paymentDetails: posPendingPayment.methodData
+    };
+
+    // Intentar guardar en servidor
+    const res = await apiFetch(`${API_URL}/sales`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(saleData)
+    });
+
+    if (!res.ok) {
+      console.warn("Server save failed, using localStorage");
+    }
+
+    // Guardar también en localStorage
+    try {
+      let savedSales = [];
+      const saved = localStorage.getItem("winner_sales");
+      if (saved) savedSales = JSON.parse(saved);
+      savedSales.unshift(saleData);
+      localStorage.setItem("winner_sales", JSON.stringify(savedSales));
+    } catch (e) {}
+
+    // Generar factura
+    generatePOSInvoice(saleData);
+    
+    // Limpiar y cerrar
+    closePOSPaymentModal();
+    clearPOS();
+    
+    showAdminToast(`✓ Venta registrada: ${admFmt(posPendingPayment.total)}`);
+
+  } catch (e) {
+    console.error("Error saving sale:", e);
+    showAdminToast("❌ Error al guardar venta");
+  }
+}
+
+function generatePOSInvoice(saleData) {
+  const invoiceHTML = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Factura ${saleData.id}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Courier New', monospace; background: #f5f5f5; padding: 20px; }
+    .invoice { width: 100%; max-width: 600px; margin: 0 auto; background: white; padding: 30px; border: 2px solid #000; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 20px; }
+    .logo { font-size: 32px; font-weight: bold; letter-spacing: 2px; margin-bottom: 5px; }
+    .logo-dot { color: #e8ff47; }
+    .slogan { font-size: 11px; color: #666; letter-spacing: 1px; }
+    .invoice-title { font-size: 14px; font-weight: bold; margin-top: 10px; text-transform: uppercase; }
+    .invoice-number { font-size: 12px; color: #666; margin: 8px 0; }
+    .section { margin: 20px 0; }
+    .section-title { font-size: 11px; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 10px; }
+    .row { display: flex; justify-content: space-between; font-size: 12px; margin: 5px 0; }
+    .label { color: #666; }
+    .value { font-weight: bold; }
+    .items-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 15px 0; }
+    .items-table th { background: #f0f0f0; padding: 8px; text-align: left; font-weight: bold; border-bottom: 1px solid #000; }
+    .items-table td { padding: 8px; border-bottom: 1px solid #ddd; }
+    .items-table .qty { text-align: center; }
+    .items-table .price { text-align: right; }
+    .items-table .total { text-align: right; }
+    .totals { margin: 20px 0; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; }
+    .total-row { display: flex; justify-content: space-between; font-size: 13px; margin: 8px 0; font-weight: bold; }
+    .final-total { font-size: 18px; text-align: right; margin-top: 10px; padding-top: 10px; border-top: 2px solid #000; }
+    .footer { text-align: center; margin-top: 30px; font-size: 10px; color: #666; }
+    .footer-line { margin: 15px 0; }
+    @media print {
+      body { margin: 0; padding: 0; background: white; }
+      .invoice { box-shadow: none; border: 1px solid #ccc; }
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice">
+    <div class="header">
+      <div class="logo">W<span class="logo-dot">●</span>NNER</div>
+      <div class="slogan">ESTILO GANADOR PARA TODOS</div>
+      <div class="invoice-title">FACTURA DE VENTA</div>
+      <div class="invoice-number">${saleData.id}</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">INFORMACIÓN DE LA VENTA</div>
+      <div class="row">
+        <span class="label">Fecha/Hora:</span>
+        <span class="value">${admFmtDate(saleData.timestamp)}</span>
+      </div>
+      <div class="row">
+        <span class="label">Vendedor:</span>
+        <span class="value">${saleData.vendor}</span>
+      </div>
+      <div class="row">
+        <span class="label">Cliente:</span>
+        <span class="value">${saleData.client}</span>
+      </div>
+      <div class="row">
+        <span class="label">Método de Pago:</span>
+        <span class="value">${saleData.method}</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">PRODUCTOS</div>
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>DESCRIPCIÓN</th>
+            <th class="qty">CANT</th>
+            <th class="price">V.UNIT</th>
+            <th class="total">TOTAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${saleData.items.map(item => `
+            <tr>
+              <td>${item.name}</td>
+              <td class="qty">${item.qty}</td>
+              <td class="price">$${Number(item.price).toLocaleString('es-CO')}</td>
+              <td class="total">$${Number(item.price * item.qty).toLocaleString('es-CO')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="totals">
+      <div class="total-row">
+        <span>Subtotal:</span>
+        <span>$${Number(saleData.subtotal).toLocaleString('es-CO')}</span>
+      </div>
+      ${saleData.discount > 0 ? `
+        <div class="total-row" style="color: #28a745;">
+          <span>Descuento:</span>
+          <span>-$${Number(saleData.discount).toLocaleString('es-CO')}</span>
+        </div>
+      ` : ''}
+      <div class="total-row" style="font-size: 16px; border-top: 1px solid #ddd; padding-top: 10px;">
+        <span>TOTAL:</span>
+        <span>$${Number(saleData.total).toLocaleString('es-CO')}</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="footer-line">¡Gracias por su compra!</div>
+      <div class="footer-line">www.winner.store • +57 316 601 9030</div>
+      <div class="footer-line" style="margin-top: 20px;">
+        ═══════════════════════════════════════
+      </div>
+      <div class="footer-line" style="margin-top: 15px; font-size: 12px;">
+        Impreso: ${new Date().toLocaleString('es-CO')}
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.onload = () => {
+      setTimeout(() => { window.print(); }, 500);
+    }
+  </script>
+</body>
+</html>
+  `;
+
+  // Abrir factura en nueva ventana
+  const printWindow = window.open("", "_blank");
+  printWindow.document.write(invoiceHTML);
+  printWindow.document.close();
+}
+
+/* ── POS HELPERS ──────────────────────────────────────── */
+
+// Variables globales para gestionar items del POS
+let posCurrentSale = [];
+
+function addProductToPOS(productId, size = "M", qty = 1) {
+  const product = admInventory.find(p => p.id === productId);
+  if (!product) {
+    showAdminToast("⚠️ Producto no encontrado");
+    return;
+  }
+
+  // Buscar si ya existe
+  const existing = posCurrentSale.find(
+    item => item.id === productId && item.size === size
+  );
+
+  if (existing) {
+    existing.qty += qty;
+  } else {
+    posCurrentSale.push({
+      ...product,
+      qty,
+      size,
+      cartId: productId + "_" + size
+    });
+  }
+
+  renderPOSSaleItems();
+  showAdminToast(`✓ ${product.name} añadido`);
+}
+
+function removeFromPOS(cartId) {
+  posCurrentSale = posCurrentSale.filter(item => item.cartId !== cartId);
+  renderPOSSaleItems();
+}
+
+function renderPOSSaleItems() {
+  const container = document.getElementById("posItems");
+  if (!container) return;
+
+  const discount = parseFloat(document.getElementById("posDiscount")?.value || 0) || 0;
+  const subtotal = posCurrentSale.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  const discountAmount = (subtotal * discount) / 100;
+  const total = subtotal - discountAmount;
+
+  document.getElementById("posSubtotal").textContent = admFmt(subtotal);
+  document.getElementById("posTotal").textContent = admFmt(total);
+
+  if (posCurrentSale.length === 0) {
+    container.innerHTML = '<div class="pos-empty">Sin productos agregados</div>';
+    return;
+  }
+
+  container.innerHTML = posCurrentSale.map((item, i) => `
+    <div class="pos-item-row" style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--gray2);border-radius:6px;margin-bottom:8px">
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13px">${item.name}</div>
+        <div style="font-size:11px;color:var(--gray-text)">Talla: ${item.size}</div>
+      </div>
+      <div style="text-align:right;min-width:90px">
+        <div style="font-size:12px;color:var(--gray-text);margin-bottom:4px">
+          <input type="number" value="${item.qty}" min="1" style="width:40px;padding:2px;border:1px solid var(--border);background:var(--gray);border-radius:3px;color:var(--white);font-size:11px" 
+            onchange="posCurrentSale[${i}].qty=Math.max(1,parseInt(this.value)||1);renderPOSSaleItems()"/>
+          × ${admFmt(item.price)}
+        </div>
+        <div style="font-weight:700;color:var(--accent)">${admFmt(item.price * item.qty)}</div>
+      </div>
+      <button class="adm-action-btn del" onclick="removeFromPOS('${item.cartId}')" style="margin-left:10px">✕</button>
+    </div>
+  `).join("");
+}
+
+function clearPOS() {
+  posCurrentSale = [];
+  document.getElementById("posVendor").value = "";
+  document.getElementById("posClient").value = "";
+  document.getElementById("posDiscount").value = "0";
+  renderPOSSaleItems();
+}
+
+function posSearchProducts() {
+  const search = document.getElementById("posSearch")?.value.toLowerCase() || "";
+  const container = document.getElementById("posProductList");
+  if (!container || !search) {
+    container.innerHTML = "";
+    return;
+  }
+
+  let results = admInventory.filter(p =>
+    p.name.toLowerCase().includes(search) || p.id.toLowerCase().includes(search)
+  );
+
+  if (results.length === 0) {
+    container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--gray-text)">Sin resultados</div>';
+    return;
+  }
+
+  container.innerHTML = results.map(p => {
+    const total = SIZES.reduce((s, sz) => s + (p.stock[sz] || 0), 0);
+    return `
+      <div style="padding:12px;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;cursor:pointer;transition:all 0.2s" 
+           onmouseover="this.style.background='var(--gray)'" onmouseout="this.style.background='transparent'">
+        <div style="display:flex;gap:12px">
+          <img src="${p.img}" style="width:50px;height:60px;object-fit:cover;background:var(--gray2);border-radius:4px" onerror="this.style.background='#333'"/>
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:13px">${p.name}</div>
+            <div style="font-size:12px;color:var(--gray-text);margin:4px 0">${admFmt(p.price)}</div>
+            <div style="font-size:11px;color:var(--accent)">Stock: ${total}</div>
+            <select style="margin-top:6px;padding:4px;font-size:11px;background:var(--gray2);border:1px solid var(--border);color:var(--white);border-radius:3px;width:100%" onchange="if(this.value) { addProductToPOS('${p.id}', this.value); this.value=''; }">
+              <option value="">Selecciona talla...</option>
+              ${SIZES.map(s => p.stock[s] > 0 ? `<option value="${s}">${s} (${p.stock[s]})</option>` : "").join("")}
+            </select>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function openQRScannerPOS() {
+  document.getElementById("posScanOverlay").classList.add("open");
+  document.getElementById("posScanModal").classList.add("open");
+  
+  const video = document.getElementById("posScanVideo");
+  if (video && typeof Html5Qrcode !== "undefined") {
+    const qrScanner = new Html5Qrcode("posScanVideo");
+    qrScanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      (decodedText) => {
+        const product = admInventory.find(p => p.id === decodedText || p.name === decodedText);
+        if (product) {
+          const availableSizes = SIZES.filter(s => product.stock[s] > 0);
+          if (availableSizes.length > 0) {
+            addProductToPOS(product.id, availableSizes[0]);
+            closePOSScanner();
+          } else {
+            showAdminToast("⚠️ Producto agotado");
+          }
+        } else {
+          showAdminToast("⚠️ Producto no encontrado");
+        }
+      }
+    );
+  }
+}
+
+function closePOSScanner() {
+  document.getElementById("posScanOverlay").classList.remove("open");
+  document.getElementById("posScanModal").classList.remove("open");
+}

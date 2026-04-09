@@ -10,8 +10,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <!-- QR Scanner -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-  <!-- Chart.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <!-- Chart.js - usar alternativa funcional -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -171,29 +171,29 @@
         </div>
       </div>
       <div class="dash-grid">
-        <div class="dash-card chart-card">
+        <div class="dash-card chart-card chart-compact">
           <div class="dash-card-header">
             <h3>Ventas por canal</h3>
           </div>
-          <canvas id="chartChannels" height="200"></canvas>
+          <canvas id="chartChannels" height="140"></canvas>
         </div>
-        <div class="dash-card chart-card">
+        <div class="dash-card chart-card chart-compact">
           <div class="dash-card-header">
             <h3>Top 5 Productos</h3>
           </div>
-          <canvas id="chartTopProducts" height="200"></canvas>
+          <canvas id="chartTopProducts" height="140"></canvas>
         </div>
-        <div class="dash-card chart-card" style="grid-column:1/-1">
+        <div class="dash-card chart-card chart-compact">
           <div class="dash-card-header">
             <h3>Ventas últimos 30 días</h3>
           </div>
-          <canvas id="chartSalesTimeline" height="150"></canvas>
+          <canvas id="chartSalesTimeline" height="120"></canvas>
         </div>
-        <div class="dash-card chart-card">
+        <div class="dash-card chart-card chart-compact">
           <div class="dash-card-header">
             <h3>Ventas por método de pago</h3>
           </div>
-          <canvas id="chartPayMethods" height="220"></canvas>
+          <canvas id="chartPayMethods" height="120"></canvas>
         </div>
         <div class="dash-card">
           <div class="dash-card-header"><h3>Últimas ventas</h3></div>
@@ -269,7 +269,12 @@
             </div>
             <div class="pos-field">
               <label>Cliente</label>
-              <input type="text" id="posClient" placeholder="Nombre cliente (opc.)"/>
+              <div style="display:flex;gap:8px;align-items:stretch">
+                <div id="posClientDisplay" style="flex:1;padding:8px 12px;background:var(--gray2);border:1px solid var(--border);border-radius:4px;display:flex;align-items:center;color:var(--gray-text);cursor:pointer;transition:all 0.2s" onclick="openClientModal()">
+                  <span id="posClientName">Agregar cliente...</span>
+                </div>
+                <button id="posClientClear" style="display:none;width:40px;padding:8px;background:rgba(231,76,60,0.15);color:#e74c3c;border:1px solid rgba(231,76,60,0.3);border-radius:4px;cursor:pointer;font-weight:600;transition:all 0.2s" onclick="clearPOSClient()">✕</button>
+              </div>
             </div>
           </div>
 
@@ -614,9 +619,10 @@
       <div class="form-row">
         <div class="form-group">
           <label>Categoría</label>
-          <select id="pCat">
+          <select id="pCat" onchange="handleCategoryChange()">
             <option value="mujer">Mujer</option>
             <option value="hombre">Hombre</option>
+            <option value="calzado">Calzado</option>
             <option value="accesorios">Accesorios</option>
           </select>
         </div>
@@ -656,14 +662,7 @@
     <!-- STOCK TAB -->
     <div class="ftab-content" id="ftab-stock">
       <p style="font-size:13px;color:var(--gray-text);margin-bottom:16px">Stock disponible por talla</p>
-      <div class="size-grid">
-        <div class="size-cell"><label>XS</label><input type="number" id="ps-XS" min="0" value="0"/></div>
-        <div class="size-cell"><label>S</label><input type="number" id="ps-S" min="0" value="0"/></div>
-        <div class="size-cell"><label>M</label><input type="number" id="ps-M" min="0" value="0"/></div>
-        <div class="size-cell"><label>L</label><input type="number" id="ps-L" min="0" value="0"/></div>
-        <div class="size-cell"><label>XL</label><input type="number" id="ps-XL" min="0" value="0"/></div>
-        <div class="size-cell"><label>XXL</label><input type="number" id="ps-XXL" min="0" value="0"/></div>
-      </div>
+      <div class="size-grid" id="sizeGridForm"></div>
       <div class="stock-total-row">
         <span>Total unidades:</span>
         <strong id="stockTotalPreview">0</strong>
@@ -749,16 +748,126 @@
   </div>
 </div>
 
-<!-- MODAL: SELECCIONAR MÉTODO DE PAGO POS -->
+<!-- MODAL: MÉTODO DE PAGO POS -->
 <div class="modal-overlay" id="posPayOverlay" onclick="closePOSPaymentModal()"></div>
-<div class="modal modal-sm" id="posPayModal">
+<div class="modal" id="posPayModal" style="max-width:600px">
   <div class="modal-header">
-    <h3>Selecciona el método de pago</h3>
+    <h3 id="posPayTitle">Método de Pago</h3>
     <button class="modal-close" onclick="closePOSPaymentModal()">✕</button>
   </div>
-  <div class="modal-body" id="posPayOptions" style="display:flex;flex-direction:column;gap:10px"></div>
+  <div class="modal-body">
+    <!-- STEP 1: SELECT PAYMENT METHOD -->
+    <div id="posPayStep1" style="display:block">
+      <div style="margin-bottom:16px;font-size:13px;color:var(--gray-text)">
+        Selecciona cómo cobrar esta venta
+      </div>
+      <div id="posPayMethodsGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:20px"></div>
+    </div>
+    
+    <!-- STEP 2: PAYMENT DETAILS -->
+    <div id="posPayStep2" style="display:none">
+      <div style="margin-bottom:16px;padding:12px;background:var(--gray2);border-radius:6px;border-left:3px solid var(--accent)">
+        <div style="font-size:12px;color:var(--gray-text)">Total a cobrar</div>
+        <div style="font-size:24px;font-weight:bold;color:var(--accent)" id="posPayTotal">$0</div>
+        <div style="font-size:11px;color:var(--gray-text);margin-top:4px" id="posPayMethod">—</div>
+      </div>
+      
+      <!-- EFECTIVO -->
+      <div id="posPayFormCash" style="display:none">
+        <div class="form-group">
+          <label>Monto entregado por el cliente</label>
+          <input type="number" id="posPayCashReceived" placeholder="0" min="0" step="1000" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--gray2);color:var(--white);font-size:14px" oninput="calcCashChange()"/>
+        </div>
+        <div style="margin-top:12px;padding:12px;background:rgba(46,204,113,0.1);border-radius:4px;border-left:3px solid #2ecc71">
+          <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:600;color:var(--accent)">
+            <span>💵 Cambio:</span>
+            <span id="posPayCashChange">$0</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- TARJETA DE CRÉDITO/DÉBITO -->
+      <div id="posPayFormCard" style="display:none">
+        <div class="form-group">
+          <label>Número de transacción / Referencia</label>
+          <input type="text" id="posPayCardRef" placeholder="Ej: 1234567890" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--gray2);color:var(--white)" maxlength="20"/>
+        </div>
+        <div class="form-group" style="margin-top:10px">
+          <label>Nombre del titular</label>
+          <input type="text" id="posPayCardName" placeholder="Nombre del cliente" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--gray2);color:var(--white)"/>
+        </div>
+        <div class="form-group" style="margin-top:10px">
+          <label>Últimos 4 dígitos</label>
+          <input type="text" id="posPayCardLast4" placeholder="0000" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--gray2);color:var(--white)" maxlength="4"/>
+        </div>
+      </div>
+      
+      <!-- NEQUI / DAVIPLATA / DALE -->
+      <div id="posPayFormMobile" style="display:none">
+        <div class="form-group">
+          <label>Número de teléfono</label>
+          <input type="tel" id="posPayMobilePhone" placeholder="+57 3XX XXX XXXX" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--gray2);color:var(--white)"/>
+        </div>
+        <div class="form-group" style="margin-top:10px">
+          <label>ID de la transacción</label>
+          <input type="text" id="posPayMobileRef" placeholder="Ej: 123456789" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--gray2);color:var(--white)"/>
+        </div>
+      </div>
+      
+      <!-- TRANSFERENCIA BANCARIA -->
+      <div id="posPayFormTransfer" style="display:none">
+        <div class="form-group">
+          <label>Banco del cliente</label>
+          <select id="posPayTransferBank" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--gray2);color:var(--white)">
+            <option value="">Selecciona banco...</option>
+            <option value="bancolombia">Bancolombia</option>
+            <option value="davivienda">Davivienda</option>
+            <option value="bbva">BBVA</option>
+            <option value="santander">Santander</option>
+            <option value="itau">Itaú</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:10px">
+          <label>Número de referencia / Comprobante</label>
+          <input type="text" id="posPayTransferRef" placeholder="Ej: TRANSF-2026-001" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--gray2);color:var(--white)"/>
+        </div>
+      </div>
+      
+      <!-- CHEQUE -->
+      <div id="posPayFormCheck" style="display:none">
+        <div class="form-group">
+          <label>Número de cheque</label>
+          <input type="text" id="posPayCheckNumber" placeholder="Ej: 123456" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--gray2);color:var(--white)"/>
+        </div>
+        <div class="form-group" style="margin-top:10px">
+          <label>Banco del cheque</label>
+          <input type="text" id="posPayCheckBank" placeholder="Ej: Bancolombia" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--gray2);color:var(--white)"/>
+        </div>
+      </div>
+      
+      <!-- NOTA GENERAL -->
+      <div class="form-group" style="margin-top:12px">
+        <label>Notas adicionales (opcional)</label>
+        <textarea id="posPayNotes" placeholder="Ej: Cliente Juan Pérez, acuerdo de pago..." style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--gray2);color:var(--white);min-height:60px;resize:vertical"></textarea>
+      </div>
+
+      <!-- CORREO PARA FACTURA -->
+      <div class="form-group" style="margin-top:12px;padding:12px;background:rgba(52,152,219,0.1);border-radius:4px;border-left:3px solid #3498db">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:16px">📧</span>
+          <label style="margin:0;font-weight:600;color:var(--accent)">Correo para envío de factura</label>
+        </div>
+        <input type="email" id="posPayEmail" placeholder="cliente@ejemplo.com" style="width:100%;padding:10px;border:1px solid rgba(52,152,219,0.5);border-radius:4px;background:var(--gray2);color:var(--white);font-size:14px"/>
+        <div style="font-size:11px;color:var(--gray-text);margin-top:6px">La factura se enviará a este correo después de confirmar</div>
+      </div>
+    </div>
+  </div>
+  
   <div class="modal-footer">
+    <button class="btn-ghost" id="posPayBackBtn" onclick="posPayBackToMethods()" style="display:none">← Atrás</button>
     <button class="btn-ghost" onclick="closePOSPaymentModal()">Cancelar</button>
+    <button class="btn-accent" id="posPayConfirmBtn" onclick="confirmPOSPaymentWithDetails()" style="display:none">CONFIRMAR PAGO</button>
   </div>
 </div>
 
@@ -786,6 +895,49 @@
   <div class="modal-footer">
     <button class="btn-ghost" onclick="closePayMethodEditor()">Cancelar</button>
     <button class="btn-accent" onclick="savePayMethodEditor()">Guardar</button>
+  </div>
+</div>
+
+<!-- MODAL: DATOS DEL CLIENTE -->
+<div class="modal-overlay" id="clientModalOverlay" onclick="closeClientModal()"></div>
+<div class="modal" id="clientModal" style="max-width:500px">
+  <div class="modal-header">
+    <h3>Datos del Cliente</h3>
+    <button class="modal-close" onclick="closeClientModal()">✕</button>
+  </div>
+  <div class="modal-body" style="display:grid;gap:12px">
+    <div class="form-group">
+      <label>Nombre *</label>
+      <input type="text" id="clientName" placeholder="Nombre completo" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--gray2);color:var(--white)"/>
+    </div>
+    <div class="form-group">
+      <label>Teléfono</label>
+      <input type="tel" id="clientPhone" placeholder="+57 3XX XXX XXXX" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--gray2);color:var(--white)"/>
+    </div>
+    <div class="form-group">
+      <label>Correo</label>
+      <input type="email" id="clientEmail" placeholder="cliente@ejemplo.com" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--gray2);color:var(--white)"/>
+    </div>
+    <div class="form-group">
+      <label>Dirección</label>
+      <input type="text" id="clientAddress" placeholder="Calle, Carrera, número" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--gray2);color:var(--white)"/>
+    </div>
+    <div class="form-group">
+      <label>Ciudad / Barrio</label>
+      <input type="text" id="clientCity" placeholder="Bogotá" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--gray2);color:var(--white)"/>
+    </div>
+    <div class="form-group">
+      <label>Tipo cliente</label>
+      <select id="clientType" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--gray2);color:var(--white)">
+        <option value="regular">Regular</option>
+        <option value="vip">VIP / Recurrente</option>
+        <option value="mayorista">Mayorista</option>
+      </select>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-ghost" onclick="closeClientModal()">Cancelar</button>
+    <button class="btn-accent" onclick="saveClientData()">GUARDAR CLIENTE</button>
   </div>
 </div>
 

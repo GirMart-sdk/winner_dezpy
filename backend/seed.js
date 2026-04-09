@@ -39,6 +39,8 @@ const PRODUCTS = [
   { id:'P023', sku:'WIN-023', name:'Rinonera Neon Reflectiva',     cat:'accesorios', price:49990,  oldPrice:null,   cost:20000, badge:'NUEVO',   badgeType:'new',  img:'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=400&q=80', stock:{U:16} },
   { id:'P024', sku:'WIN-024', name:'Set Medias Deportivas x3',     cat:'accesorios', price:24990,  oldPrice:35000,  cost:9000,  badge:'OFERTA',  badgeType:'sale', img:'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?w=400&q=80', stock:{U:50} },
   { id:'P025', sku:'WIN-025', name:'Bufanda Tubular Streetwear',   cat:'accesorios', price:29990,  oldPrice:null,   cost:11000, badge:null,      badgeType:null,   img:'https://images.unsplash.com/photo-1520903920243-00d872a2d1c9?w=400&q=80', stock:{U:20} },
+  /* ══ CALZADO ══════════════════════════════════════════════════ */
+  { id:'P026', sku:'WIN-026', name:'Nike Air Jordan RetroFuture',  cat:'calzado',    price:249990, oldPrice:299000, cost:115000, badge:'HOT',     badgeType:'hot',  img:'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80', stock:{'34':2,'35':3,'36':5,'37':8,'38':10,'39':7,'40':6,'41':4,'42':3,'43':2} },
 ];
 
 /* ── Ventas de muestra ──────────────────────────────────── */
@@ -159,6 +161,7 @@ async function startSeed() {
     console.log('   Mujer      : 8 (P001-P008)');
     console.log('   Hombre     : 8 (P009-P016)');
     console.log('   Accesorios : 9 (P017-P025)');
+    console.log('   Calzado    : 1 (P026) - Tallas 34-43 ✓');
     console.log('✅ Ventas muestra: ' + SALES.length + ' (14 dias)');
     console.log('💰 Revenue total : $' + rev.toLocaleString('es-CO'));
     console.log('\n 🚀 npm start  ->  http://localhost:3000');

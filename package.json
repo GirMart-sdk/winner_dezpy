@@ -10,11 +10,11 @@
     "node": ">=14.0.0",
     "npm": ">=6.0.0"
   },
-  
   "scripts": {
     "start": "node backend/server.js",
     "start:dev": "NODE_ENV=development node backend/server.js",
     "start:prod": "NODE_ENV=production node backend/server.js",
+    "start:local": "node start-local.bat",
     "develop": "watch 'npm start' .",
     "seed": "node backend/seed.js",
     "init": "npm install && npm run seed && npm start",
@@ -22,12 +22,12 @@
     "test": "node -c backend/server.js && echo '✅ Sintaxis validada'",
     "lint": "echo '✅ Syntax check completado'",
     "backup": "node backend/database-backup.js",
-    "db:check": "echo 'Base de datos: win ner_store.db' && dir backend/*.db 2>/dev/null || echo 'BD no encontrada - ejecuta npm run seed'",
+    "backup:local": "node scripts/backup-local.js",
+    "db:check": "echo 'Base de datos: winner_store.db' && dir backend/*.db 2>/dev/null || echo 'BD no encontrada - ejecuta npm run seed'",
     "clean": "del /s /q backend\\*.db 2>nul || rm -f backend/*.db && echo '✅ BD limpiada'",
     "reset": "npm run clean && npm run seed && echo '✅ Proyecto reseteado'",
     "logs": "type .env | findstr DB || echo 'Revisa backend/server.js para logs'"
   },
-
   "keywords": [
     "ecommerce",
     "tienda-online",
@@ -38,7 +38,6 @@
     "nequi",
     "daviplata"
   ],
-
   "dependencies": {
     "body-parser": "^2.2.2",
     "cors": "^2.8.6",
@@ -48,20 +47,15 @@
     "pg": "^8.11.3",
     "sqlite3": "^5.1.7"
   },
-
   "devDependencies": {
     "watch": "^1.0.2"
   },
-
   "repository": {
     "type": "git",
     "url": "https://github.com/GirMart-sdk/winner_dezpy"
   },
-
   "bugs": {
     "url": "https://github.com/GirMart-sdk/winner_dezpy/issues"
   },
-
   "homepage": "https://github.com/GirMart-sdk/winner_dezpy#readme"
 }
-

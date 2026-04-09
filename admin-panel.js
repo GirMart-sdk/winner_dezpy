@@ -9,6 +9,30 @@
    CONFIG
 ══════════════════════════════════════════════════════════ */
 const SIZES = ['XS','S','M','L','XL','XXL'];
+
+// Función centralizada para obtener tallas según categoría
+function getSizesForCategory(category) {
+  const cat = (category || '').toLowerCase().trim();
+  
+  // Accesorios: sin tallas
+  if (cat === 'accesorios' || cat === 'accessories' || cat.includes('accesorio')) {
+    return [];
+  }
+  
+  // Calzado: números 34-43
+  if (cat === 'calzado' || cat === 'shoes' || cat === 'zapatos' || 
+      cat.includes('calzado') || cat.includes('shoe') || cat.includes('zapato')) {
+    return ['34', '35', '36', '37', '38', '39', '40', '41', '42', '43'];
+  }
+  
+  // Todo lo demás (ropa): tallas estándar
+  return SIZES;  // ['XS','S','M','L','XL','XXL']
+}
+
+// Función para verificar si una categoría tiene tallas
+function hasSizes(category) {
+  return getSizesForCategory(category).length > 0;
+}
 let AUTH_TOKEN = null;  // Global auth token
 
 /* ══════════════════════════════════════════════════════════
@@ -45,11 +69,33 @@ const apiFetch = (url, options = {}) => {
 };
 async function fetchInventory() {
   try {
+    console.log('📦 Cargando inventario desde API:', API_URL + '/products');
     const res = await apiFetch(`${API_URL}/products`);
-    inventory = await res.json();
+    
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+    
+    const data = await res.json();
+    console.log('✅ Inventario cargado:', data.length || data?.value?.length || 0, 'productos');
+    
+    // Manejar diferentes formatos de respuesta
+    if (Array.isArray(data)) {
+      inventory = data;
+    } else if (data.value && Array.isArray(data.value)) {
+      inventory = data.value;
+    } else {
+      throw new Error('Formato de respuesta inválido');
+    }
+    
+    console.log('📊 Productos totales:', inventory.length);
     renderInventory();
     renderPOSProducts();
-  } catch(e) { console.error('Error fetching inventory:', e); }
+  } catch(e) { 
+    console.error('❌ Error cargando inventario:', e.message);
+    inventory = [];
+    toast('⚠️ Error cargando productos');
+  }
 }
 
 async function fetchSalesLog() {
@@ -97,10 +143,10 @@ function defaultInventory() {
     { id:2, name:'Jogger Cargo Pro',   cat:'hombre',    price:79990,  cost:35000, sku:'WIN-002', img:'https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?w=300&q=75',    stock:{XS:0,S:5,M:9,L:7,XL:4,XXL:1} },
     { id:3, name:'Bomber Reflex',      cat:'hombre',    price:189990, cost:90000, sku:'WIN-003', img:'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=300&q=75',    stock:{XS:1,S:3,M:5,L:3,XL:2,XXL:0} },
     { id:4, name:'Mini Dress Urban',   cat:'mujer',     price:99990,  cost:48000, sku:'WIN-004', img:'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=300&q=75', stock:{XS:6,S:10,M:8,L:4,XL:2,XXL:0} },
-    { id:5, name:'Bucket Hat Logo',    cat:'accesorios',price:39990,  cost:15000, sku:'WIN-005', img:'https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?w=300&q=75', stock:{XS:0,S:0,M:20,L:15,XL:10,XXL:0} },
+    { id:5, name:'Bucket Hat Logo',    cat:'accesorios',price:39990,  cost:15000, sku:'WIN-005', img:'https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?w=300&q=75', stock:{U:50} },
     { id:6, name:'Oversize Tee "W"',   cat:'hombre',    price:59990,  cost:22000, sku:'WIN-006', img:'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=300&q=75', stock:{XS:2,S:14,M:18,L:12,XL:6,XXL:3} },
     { id:7, name:'Set Legging + Top',  cat:'mujer',     price:119990, cost:55000, sku:'WIN-007', img:'https://images.unsplash.com/photo-1548690312-e3b507d8c110?w=300&q=75',   stock:{XS:5,S:7,M:9,L:5,XL:2,XXL:0} },
-    { id:8, name:'Mochila Táctica',    cat:'accesorios',price:69990,  cost:28000, sku:'WIN-008', img:'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=300&q=75',   stock:{XS:0,S:0,M:11,L:0,XL:0,XXL:0} },
+    { id:8, name:'Mochila Táctica',    cat:'accesorios',price:69990,  cost:28000, sku:'WIN-008', img:'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=300&q=75',   stock:{U:30} },
   ];
 }
 
@@ -143,7 +189,6 @@ const fmt = (n) => '$' + Number(n).toLocaleString('es-CO');
 const nowStr = () => new Date().toISOString();
 const todayStr = () => new Date().toISOString().split('T')[0];
 const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,5);
-const totalStock = (p) => Object.values(p.stock).reduce((a,b)=>a+Number(b),0);
 
 function fmtDate(iso) {
   try { return new Intl.DateTimeFormat('es-CO', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }).format(new Date(iso)); }
@@ -162,6 +207,12 @@ function toast(msg, duration=2800) {
   $('adminToast').classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=>$('adminToast').classList.remove('show'), duration);
+}
+
+/* ── Total stock helper ── */
+function totalStock(product) {
+  if (!product || !product.stock) return 0;
+  return Object.values(product.stock).reduce((sum, qty) => sum + (Number(qty) || 0), 0);
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -447,11 +498,14 @@ function renderInventory() {
   container.innerHTML = filtered.map(p => {
     const ts   = totalStock(p);
     const stat = stockStatus(ts);
-    const sizesBadges = SIZES.map(s => {
-      const qty = p.stock[s]||0;
-      const cls = qty===0?'out':qty<=3?'low':'ok';
-      return `<span class="inv-size-badge ${cls}">${s}:${qty}</span>`;
-    }).join('');
+    const sizes = getSizesForCategory(p.cat);
+    const sizesBadges = sizes.length > 0 
+      ? sizes.map(s => {
+          const qty = p.stock[s]||0;
+          const cls = qty===0?'out':qty<=3?'low':'ok';
+          return `<span class="inv-size-badge ${cls}">${s}:${qty}</span>`;
+        }).join('')
+      : '<span style="color:var(--gray-text);font-size:12px">Sin talla</span>';
 
     return `
       <div class="inv-card" data-product-id="${p.id}">
@@ -530,14 +584,18 @@ function openProductModal(id=null) {
     $('pCost').value = p.cost||'';
     $('pSku').value  = p.sku||'';
     $('pImg').value  = p.img||'';
-    SIZES.forEach(s=>{ $('ps-'+s).value = p.stock[s]||0; });
+    
+    // Renderizar grid según categoría
+    renderStockGrid(p.cat, p.stock);
     updateStockTotal();
     // Show QR
     setTimeout(()=>renderQRPreview(p), 100);
   } else {
     ['pName','pPrice','pCost','pSku','pImg'].forEach(f=>$(f).value='');
     $('pCat').value='mujer';
-    SIZES.forEach(s=>{ $('ps-'+s).value=0; });
+    
+    // Renderizar grid para mujer por defecto
+    renderStockGrid('mujer', {});
     $('qrPreviewBox').innerHTML='<div style="color:var(--gray-text);font-size:13px">Guarda el producto para generar el QR</div>';
     updateStockTotal();
   }
@@ -545,6 +603,34 @@ function openProductModal(id=null) {
   switchFormTab('info');
   $('productModalOverlay').classList.add('open');
   $('productModal').classList.add('open');
+}
+
+function renderStockGrid(category, stock={}) {
+  const sizes = getSizesForCategory(category);
+  const gridEl = $('sizeGridForm');
+  
+  if (sizes.length === 0) {
+    // Sin tallas - mostrar campo de cantidad general
+    gridEl.innerHTML = `
+      <div class="size-cell" style="grid-column:1/-1">
+        <label>Cantidad total</label>
+        <input type="number" id="ps-qty" min="0" value="${stock.qty || 0}" oninput="updateStockTotal()"/>
+      </div>`;
+  } else {
+    // Mostrar tallas según categoría
+    gridEl.innerHTML = sizes.map(s => `
+      <div class="size-cell">
+        <label>${s}</label>
+        <input type="number" id="ps-${s}" min="0" value="${stock[s] || 0}" oninput="updateStockTotal()"/>
+      </div>
+    `).join('');
+  }
+}
+
+function handleCategoryChange() {
+  const category = $('pCat').value;
+  renderStockGrid(category, {});
+  updateStockTotal();
 }
 
 function editProduct(id) { openProductModal(id); }
@@ -560,9 +646,22 @@ function switchFormTab(tab) {
 }
 
 function updateStockTotal() {
-  const total = SIZES.reduce((s,sz)=>s+(parseInt($('ps-'+sz).value)||0),0);
   const el = $('stockTotalPreview');
-  if (el) el.textContent = total;
+  if (!el) return;
+  
+  const cat = $('pCat').value;
+  const sizes = getSizesForCategory(cat);
+  
+  let total = 0;
+  if (sizes.length === 0) {
+    // Accesorios sin tallas
+    total = parseInt($('ps-qty').value) || 0;
+  } else {
+    // Productos con tallas
+    total = sizes.reduce((s, sz) => s + (parseInt($('ps-' + sz).value) || 0), 0);
+  }
+  
+  el.textContent = total;
 }
 
 SIZES.forEach(s => {
@@ -596,7 +695,15 @@ async function saveProduct() {
   }
 
   const stock = {};
-  SIZES.forEach(s=>{ stock[s]=parseInt($('ps-'+s).value)||0; });
+  const sizes = getSizesForCategory(cat);
+  
+  if (sizes.length === 0) {
+    // Accesorios sin tallas
+    stock.qty = parseInt($('ps-qty').value) || 0;
+  } else {
+    // Productos con tallas
+    sizes.forEach(s => { stock[s] = parseInt($('ps-' + s).value) || 0; });
+  }
 
   const productData = { 
     id: id || genId(), 
@@ -1060,40 +1167,77 @@ function processScannedProduct(product) {
    POS
 ══════════════════════════════════════════════════════════ */
 function renderPOSProducts(filter='') {
-  const list = $('posProductList');
-  const q = filter.toLowerCase();
-  const items = inventory.filter(p =>
-    totalStock(p)>0 && (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || !q)
-  );
+  try {
+    const list = $('posProductList');
+    if (!list) {
+      console.error('❌ Contenedor posProductList no encontrado');
+      return;
+    }
+    
+    if (!inventory || inventory.length === 0) {
+      list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--gray-text)">Cargando productos...</div>';
+      return;
+    }
+    
+    const q = filter.toLowerCase();
+    const items = inventory.filter(p =>
+      totalStock(p) > 0 && (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || !q)
+    );
 
-  list.innerHTML = items.map(p=>`
-    <div class="pos-product-card" data-product-id="${p.id}">
-      <img src="${p.img}" alt="${p.name}" onerror="this.src='https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=200&q=60'"/>
-      <div class="pos-product-card-info">
-        <div class="ppc-cat">${p.cat}</div>
-        <div class="ppc-name">${p.name}</div>
-        <div class="ppc-price">${fmt(p.price)}</div>
-      </div>
-    </div>`).join('');
-  
-  // Agregar event listeners
-  list.querySelectorAll('.pos-product-card').forEach(card => {
-    card.addEventListener('click', (e) => {
-      const productId = card.dataset.productId;
-      const product = inventory.find(p => String(p.id) === String(productId));
-      if (product) {
-        openPOSSizeSelector(product);
-      }
+    if (items.length === 0) {
+      list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--gray-text)">Sin productos disponibles</div>';
+      return;
+    }
+
+    list.innerHTML = items.map(p=>`
+      <div class="pos-product-card" data-product-id="${p.id}" style="cursor:pointer;transition:all 0.2s">
+        <img src="${p.img}" alt="${p.name}" onerror="this.src='https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=200&q=60'"/>
+        <div class="pos-product-card-info">
+          <div class="ppc-cat">${p.cat}</div>
+          <div class="ppc-name">${p.name}</div>
+          <div class="ppc-price">${fmt(p.price)}</div>
+          <div style="font-size:12px;color:var(--accent);margin-top:4px">Stock: ${totalStock(p)}</div>
+        </div>
+      </div>`).join('');
+    
+    // Agregar event listeners
+    list.querySelectorAll('.pos-product-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        const productId = card.dataset.productId;
+        const product = inventory.find(p => String(p.id) === String(productId));
+        if (product) {
+          openPOSSizeSelector(product);
+        }
+      });
+      card.addEventListener('mouseover', () => card.style.transform = 'scale(1.02)');
+      card.addEventListener('mouseout', () => card.style.transform = 'scale(1)');
     });
-  });
+  } catch(e) {
+    console.error('❌ Error en renderPOSProducts:', e);
+    const list = $('posProductList');
+    if (list) list.innerHTML = `<div style="color:red;padding:10px">Error: ${e.message}</div>`;
+  }
 }
 
 function openPOSSizeSelector(product) {
+  // Debug: ver qué categoría tiene el producto
+  console.log('📦 Producto seleccionado:', product.name, '| Categoría:', product.cat);
+  
+  // Verificar si este producto tiene tallas
+  if (!hasSizes(product.cat)) {
+    // Sin tallas (accesorios) - agregar directamente al carrito
+    addToPOSCart(product.id, 'N/A');
+    return;
+  }
+  
   const modal = $('posSizeModal') || createPOSSizeModal();
   const overlay = $('posSizeOverlay');
   const sizeGrid = modal.querySelector('#posSizeGrid');
   
-  sizeGrid.innerHTML = SIZES.map(size => {
+  const sizes = getSizesForCategory(product.cat);
+  console.log('👕 Tallas para', product.cat, ':', sizes);
+  
+  sizeGrid.innerHTML = sizes.map(size => {
     const stock = product.stock ? (product.stock[size] || 0) : 0;
     const disabled = stock <= 0;
     return `
@@ -1203,15 +1347,38 @@ function addToPOSCart(productOrId, size='M') {
       return;
     }
     
-    if (!size) {
-      toast('⚠ Selecciona una talla');
-      return;
-    }
+    const hasTallas = hasSizes(p.cat);
     
-    const stock = p.stock ? (p.stock[size] || 0) : 0;
-    if (stock <= 0) {
-      toast(`⚠ Sin stock en talla ${size}`);
-      return;
+    if (!hasTallas) {
+      // Es un accesorio sin talla
+      size = 'N/A';
+      
+      // Validar stock general - buscar en qty o U
+      let stock = 0;
+      if (p.stock?.qty !== undefined) {
+        stock = p.stock.qty || 0;
+      } else if (p.stock?.U !== undefined) {
+        stock = p.stock.U || 0;
+      } else {
+        stock = Object.values(p.stock || {}).reduce((s, v) => s + (v || 0), 0) || 0;
+      }
+      
+      if (stock <= 0) {
+        toast(`⚠ Sin stock de ${p.name}`);
+        return;
+      }
+    } else {
+      // Producto con talla
+      if (!size) {
+        toast('⚠ Selecciona una talla');
+        return;
+      }
+      
+      const stock = p.stock ? (p.stock[size] || 0) : 0;
+      if (stock <= 0) {
+        toast(`⚠ Sin stock en talla ${size}`);
+        return;
+      }
     }
     
     const existing = posCart.find(i => String(i.id) === String(p.id) && i.size === size);
@@ -1229,7 +1396,8 @@ function addToPOSCart(productOrId, size='M') {
     }
     
     renderPOSCart();
-    toast(`✓ ${p.name} (${size}) agregado al carrito`);
+    const sizeText = size === 'N/A' ? '' : ` (${size})`;
+    toast(`✓ ${p.name}${sizeText} agregado al carrito`);
     console.log(`Producto agregado: ${p.name} - Talla: ${size}`);
   } catch(e) {
     console.error('Error en addToPOSCart:', e);
@@ -1238,7 +1406,18 @@ function addToPOSCart(productOrId, size='M') {
 }
 
 function posSearchProducts() {
-  renderPOSProducts($('posSearch').value);
+  try {
+    const searchInput = $('posSearch');
+    if (!searchInput) {
+      console.warn('⚠️ Input de búsqueda no encontrado');
+      return;
+    }
+    const searchTerm = searchInput.value || '';
+    renderPOSProducts(searchTerm);
+  } catch(e) {
+    console.error('❌ Error en búsqueda POS:', e);
+    toast('⚠️ Error en búsqueda');
+  }
 }
 
 function removePOSItem(id, size) {
@@ -1254,35 +1433,53 @@ function updatePOSQty(id, size, delta) {
 }
 
 function renderPOSCart() {
-  const el = $('posItems');
-  if (!posCart.length) {
-    el.innerHTML='<div class="pos-empty">Sin productos agregados</div>';
-  } else {
-    el.innerHTML = posCart.map(item=>`
-      <div class="pos-item-row">
-        <img src="${item.img}" class="pos-item-img" onerror="this.style.display='none'"/>
-        <div style="flex:1">
-          <div class="pos-item-name">${item.name}</div>
-          <div class="pos-item-size">Talla: ${item.size}</div>
-        </div>
-        <div class="pos-qty-ctrl">
-          <button onclick="updatePOSQty(${item.id},'${item.size}',-1)">−</button>
-          <span>${item.qty}</span>
-          <button onclick="updatePOSQty(${item.id},'${item.size}',+1)">+</button>
-        </div>
-        <div class="pos-item-total">${fmt(item.price*item.qty)}</div>
-        <button class="pos-item-remove" onclick="removePOSItem(${item.id},'${item.size}')">✕</button>
-      </div>`).join('');
+  try {
+    const el = $('posItems');
+    if (!el) {
+      console.warn('⚠️ Contenedor posItems no encontrado');
+      return;
+    }
+    
+    if (!posCart.length) {
+      el.innerHTML='<div class="pos-empty">Sin productos agregados</div>';
+    } else {
+      el.innerHTML = posCart.map((item, idx)=>`
+        <div class="pos-item-row">
+          <img src="${item.img}" class="pos-item-img" onerror="this.style.display='none'"/>
+          <div style="flex:1">
+            <div class="pos-item-name">${item.name}</div>
+            <div class="pos-item-size">Talla: ${item.size}</div>
+          </div>
+          <div class="pos-qty-ctrl">
+            <button onclick="updatePOSQty('${String(item.id).replace(/'/g, "\\'")}','${item.size}',-1)">−</button>
+            <span>${item.qty}</span>
+            <button onclick="updatePOSQty('${String(item.id).replace(/'/g, "\\'")}','${item.size}',+1)">+</button>
+          </div>
+          <div class="pos-item-total">${fmt(item.price*item.qty)}</div>
+          <button class="pos-item-remove" onclick="removePOSItem('${String(item.id).replace(/'/g, "\\'")}','${item.size}')">✕</button>
+        </div>`).join('');
+    }
+    updatePOSTotals();
+  } catch(e) {
+    console.error('❌ Error renderizando carrito:', e);
+    toast('⚠️ Error mostrando carrito');
   }
-  updatePOSTotals();
 }
 
 function updatePOSTotals() {
-  const sub = posCart.reduce((s,i)=>s+i.price*i.qty,0);
-  const disc = parseFloat($('posDiscount').value)||0;
-  const total = sub * (1 - disc/100);
-  $('posSubtotal').textContent = fmt(sub);
-  $('posTotal').textContent    = fmt(Math.round(total));
+  try {
+    const sub = posCart.reduce((s,i)=>s+(Number(i.price||0)*Number(i.qty||0)),0);
+    const discEl = $('posDiscount');
+    const disc = discEl ? parseFloat(discEl.value) || 0 : 0;
+    const total = sub * (1 - disc/100);
+    
+    const subEl = $('posSubtotal');
+    const totEl = $('posTotal');
+    if (subEl) subEl.textContent = fmt(sub);
+    if (totEl) totEl.textContent = fmt(Math.round(total));
+  } catch(e) {
+    console.error('❌ Error actualizando totales:', e);
+  }
 }
 
 const posDiscountEl = $('posDiscount');
@@ -1309,84 +1506,147 @@ function selectPOSMethod(method) {
 }
 
 function clearPOS() {
-  posCart = [];
-  $('posVendor').value  = '';
-  $('posClient').value  = '';
-  $('posDiscount').value= 0;
-  renderPOSCart();
+  try {
+    posCart = [];
+    posCurrentClient = null;
+    
+    const vendor = $('posVendor');
+    const discount = $('posDiscount');
+    const displayEl = $('posClientName');
+    const clearBtn = $('posClientClear');
+    
+    if (vendor) vendor.value = '';
+    if (discount) discount.value = 0;
+    if (displayEl) {
+      displayEl.textContent = 'Agregar cliente...';
+      displayEl.style.color = 'var(--gray-text)';
+    }
+    if (clearBtn) clearBtn.style.display = 'none';
+    
+    renderPOSCart();
+  } catch(e) {
+    console.error('❌ Error en clearPOS:', e);
+  }
 }
 
 async function confirmPOSSale() {
-  if (!posCart.length) { toast('⚠ Agrega productos a la venta'); return; }
-  const vendor = $('posVendor').value.trim()||'Vendedor';
-  const client = $('posClient').value.trim()||'—';
-  const disc   = parseFloat($('posDiscount').value)||0;
-  const sub    = posCart.reduce((s,i)=>s+i.price*i.qty,0);
-  const total  = Math.round(sub*(1-disc/100));
-
-  const items = posCart.map(i=>({name:i.name,qty:i.qty,price:i.price,size:i.size}));
-
-  const sale = {
-    id: genId(), timestamp: nowStr(), channel:'fisica',
-    vendor, client, method: posSelectedMethod,
-    subtotal: sub, discount: disc, total, items
-  };
-
   try {
-    await apiFetch(`${API_URL}/sales`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sale)
-    });
-    fetchSalesLog();
-  } catch(e) { console.error('Error saving POS sale:', e); }
-
-  // Sync stock to backend
-  for (const item of posCart) {
-    const p = inventory.find(x => String(x.id) === String(item.id));
-    if (p) {
-      let rem = item.qty;
-      for (const s of SIZES) {
-        if (rem <= 0) break;
-        const take = Math.min(p.stock[s] || 0, rem);
-        p.stock[s] = (p.stock[s] || 0) - take;
-        rem -= take;
-      }
-      try {
-        await apiFetch(`${API_URL}/products`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...p, category: p.cat, image: p.img })
-        });
-      } catch (e) { console.error('Error syncing stock:', e); }
+    if (!posCart.length) { 
+      toast('⚠ Agrega productos a la venta'); 
+      return; 
     }
-  }
+    
+    const vendorEl = $('posVendor');
+    const discEl = $('posDiscount');
+    
+    if (!vendorEl || !discEl) {
+      console.error('❌ Faltan campos de formulario POS');
+      toast('❌ Error: formulario incompleto');
+      return;
+    }
+    
+    const vendor = vendorEl.value.trim()||'Vendedor';
+    const client = posCurrentClient?.name || '—';
+    const disc   = parseFloat(discEl.value)||0;
+    const sub    = posCart.reduce((s,i)=>s+i.price*i.qty,0);
+    const total  = Math.round(sub*(1-disc/100));
 
-  toast(`✓ Venta confirmada: ${fmt(total)} — ${posSelectedMethod}`);
-  clearPOS();
-  fetchInventory();
-  renderDashboard();
+    const items = posCart.map(i=>({name:i.name,qty:i.qty,price:i.price,size:i.size}));
 
-  // Print receipt option
-  if (confirm(`✓ Venta registrada: ${fmt(total)}\n\n¿Imprimir recibo?`)) {
-    printReceipt(sale);
+    const sale = {
+      id: genId(), timestamp: nowStr(), channel:'fisica',
+      vendor, client, method: posSelectedMethod,
+      subtotal: sub, discount: disc, total, items,
+      customerData: posCurrentClient || null
+    };
+
+    try {
+      await apiFetch(`${API_URL}/sales`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sale)
+      });
+      fetchSalesLog();
+    } catch(e) { console.error('Error saving POS sale:', e); }
+
+    // Sync stock to backend
+    for (const item of posCart) {
+      const p = inventory.find(x => String(x.id) === String(item.id));
+      if (p) {
+        let rem = item.qty;
+        for (const s of SIZES) {
+          if (rem <= 0) break;
+          const take = Math.min(p.stock[s] || 0, rem);
+          p.stock[s] = (p.stock[s] || 0) - take;
+          rem -= take;
+        }
+        try {
+          await apiFetch(`${API_URL}/products`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...p, category: p.cat, image: p.img })
+          });
+        } catch (e) { console.error('Error syncing stock:', e); }
+      }
+    }
+
+    toast(`✓ Venta confirmada: ${fmt(total)} — ${posSelectedMethod}`);
+    clearPOS();
+    fetchInventory();
+    renderDashboard();
+
+    // Print receipt option
+    if (confirm(`✓ Venta registrada: ${fmt(total)}\n\n¿Imprimir recibo?`)) {
+      printReceipt(sale);
+    }
+  } catch(e) {
+    console.error('❌ Error en confirmPOSSale:', e);
+    toast('❌ Error procesando venta');
   }
 }
 
 function openQRScannerPOS() {
-  $('posScanOverlay').classList.add('open');
-  $('posScanModal').classList.add('open');
-  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}})
-    .then(stream=>{
-      posScanStream = stream;
-      $('posScanVideo').srcObject = stream;
-    }).catch(e=>toast('⚠ Cámara no disponible: '+e.message));
+  try {
+    const overlay = $('posScanOverlay');
+    const modal = $('posScanModal');
+    const video = $('posScanVideo');
+    
+    if (!overlay || !modal || !video) {
+      console.error('❌ Elementos del escáner no encontrados');
+      toast('❌ Error abriendo escáner');
+      return;
+    }
+    
+    overlay.classList.add('open');
+    modal.classList.add('open');
+    
+    navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}})
+      .then(stream=>{
+        posScanStream = stream;
+        video.srcObject = stream;
+      }).catch(e=>{
+        toast('⚠ Cámara no disponible: '+e.message);
+        console.error('❌ Error de cámara:', e);
+      });
+  } catch(e) {
+    console.error('❌ Error en openQRScannerPOS:', e);
+    toast('❌ Error abriendo escáner');
+  }
 }
 
 function closePOSScanner() {
-  if (posScanStream) { posScanStream.getTracks().forEach(t=>t.stop()); posScanStream=null; }
-  $('posScanOverlay').classList.remove('open');
-  $('posScanModal').classList.remove('open');
+  try {
+    if (posScanStream) { 
+      posScanStream.getTracks().forEach(t=>t.stop()); 
+      posScanStream = null; 
+    }
+    const overlay = $('posScanOverlay');
+    const modal = $('posScanModal');
+    if (overlay) overlay.classList.remove('open');
+    if (modal) modal.classList.remove('open');
+  } catch(e) {
+    console.error('❌ Error en closePOSScanner:', e);
+  }
 }
 
 /* ── RECEIPT ── */
@@ -2293,34 +2553,467 @@ function savePayMethodEditor() {
    MODAL POS PAYMENT
 ══════════════════════════════════════════════════════════ */
 function openPOSPaymentModal() {
-  if (!posCart.length) { toast('⚠ Agrega productos a la venta'); return; }
-  const allMethods = [
-    ...payMethods.national.filter(m => m.enabled),
-    ...payMethods.wallets.filter(m => m.enabled),
-    ...payMethods.delivery.filter(m => m.enabled),
-    ...payMethods.intl.filter(m => m.enabled),
-  ];
-  const opts = $('posPayOptions');
-  opts.innerHTML = allMethods.map(m => `
-    <button class="pos-pay-option-btn ${posSelectedMethod===m.name?'selected':''}"
-      onclick="selectAndConfirmPOS('${m.name}')">
-      <span style="font-size:20px">${m.icon}</span>
-      <span>${m.name}</span>
-      <span style="font-size:10px;color:var(--gray-text)">${m.type}</span>
-    </button>`).join('');
-  $('posPayOverlay').classList.add('open');
-  $('posPayModal').classList.add('open');
+  try {
+    if (!posCart.length) { 
+      toast('⚠ Agrega productos a la venta'); 
+      return; 
+    }
+    
+    const allMethods = [
+      ...payMethods.national.filter(m => m.enabled),
+      ...payMethods.wallets.filter(m => m.enabled),
+      ...payMethods.delivery.filter(m => m.enabled),
+      ...payMethods.intl.filter(m => m.enabled),
+    ];
+    
+    const grid = $('posPayMethodsGrid');
+    if (!grid) {
+      console.error('❌ Contenedor posPayMethodsGrid no encontrado');
+      toast('❌ Error abriendo modal de pago');
+      return;
+    }
+    
+    grid.innerHTML = allMethods.map(m => `
+      <button class="pos-pay-option-btn" style="padding:12px;border:2px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:6px"
+        onmouseover="this.style.borderColor='var(--accent)'"
+        onmouseout="this.style.borderColor='var(--border)'"
+        onclick="selectPOSPaymentMethod('${m.id}', '${m.name}', '${m.type}')">
+        <span style="font-size:24px">${m.icon}</span>
+        <span style="font-size:12px;font-weight:600;color:var(--white)">${m.name}</span>
+        <span style="font-size:10px;color:var(--gray-text)">${m.type}</span>
+      </button>`).join('');
+    
+    // Mostrar step 1, ocultar step 2
+    const step1 = $('posPayStep1');
+    const step2 = $('posPayStep2');
+    if (step1) step1.style.display = 'block';
+    if (step2) step2.style.display = 'none';
+    
+    // Botones
+    const backBtn = $('posPayBackBtn');
+    const confirmBtn = $('posPayConfirmBtn');
+    if (backBtn) backBtn.style.display = 'none';
+    if (confirmBtn) confirmBtn.style.display = 'none';
+    
+    // Abrir modal
+    const overlay = $('posPayOverlay');
+    const modal = $('posPayModal');
+    if (overlay) overlay.classList.add('open');
+    if (modal) modal.classList.add('open');
+  } catch(e) {
+    console.error('❌ Error en openPOSPaymentModal:', e);
+    toast('❌ Error abriendo modal de pago');
+  }
 }
 
 function closePOSPaymentModal() {
-  $('posPayOverlay').classList.remove('open');
-  $('posPayModal').classList.remove('open');
+  try {
+    const overlay = $('posPayOverlay');
+    const modal = $('posPayModal');
+    if (overlay) overlay.classList.remove('open');
+    if (modal) modal.classList.remove('open');
+    // Limpiar formularios
+    $('posPayCashReceived').value = '';
+    $('posPayCardRef').value = '';
+    $('posPayCardName').value = '';
+    $('posPayCardLast4').value = '';
+    $('posPayMobilePhone').value = '';
+    $('posPayMobileRef').value = '';
+    $('posPayTransferBank').value = '';
+    $('posPayTransferRef').value = '';
+    $('posPayCheckNumber').value = '';
+    $('posPayCheckBank').value = '';
+    $('posPayNotes').value = '';
+    $('posPayEmail').value = '';
+  } catch(e) {
+    console.error('❌ Error en closePOSPaymentModal:', e);
+  }
 }
 
-function selectAndConfirmPOS(method) {
-  posSelectedMethod = method;
-  closePOSPaymentModal();
-  confirmPOSSale();
+let posCurrentPaymentMethod = null;
+
+function selectPOSPaymentMethod(methodId, methodName, methodType) {
+  try {
+    posCurrentPaymentMethod = { id: methodId, name: methodName, type: methodType };
+    
+    // Mostrar Step 2
+    const step1 = $('posPayStep1');
+    const step2 = $('posPayStep2');
+    if (step1) step1.style.display = 'none';
+    if (step2) step2.style.display = 'block';
+    
+    // Actualizar título
+    const titleEl = $('posPayMethod');
+    if (titleEl) titleEl.textContent = `📱 ${methodName} (${methodType})`;
+    
+    // Calcular total
+    const sub = posCart.reduce((s,i)=>s+(Number(i.price||0)*Number(i.qty||0)),0);
+    const discEl = $('posDiscount');
+    const disc = discEl ? parseFloat(discEl.value) || 0 : 0;
+    const total = Math.round(sub * (1 - disc/100));
+    
+    const totalEl = $('posPayTotal');
+    if (totalEl) totalEl.textContent = fmt(total);
+    
+    // Mostrar formulario según el método
+    hideAllPaymentForms();
+    
+    if (methodId === 'cash') {
+      const cashForm = $('posPayFormCash');
+      if (cashForm) cashForm.style.display = 'block';
+    } else if (['debit', 'credit', 'visa', 'mc', 'paypal', 'stripe', 'amex'].includes(methodId)) {
+      const cardForm = $('posPayFormCard');
+      if (cardForm) cardForm.style.display = 'block';
+    } else if (['nequi', 'daviplata', 'dale', 'rappipay', 'movii', 'tpaga'].includes(methodId)) {
+      const mobileForm = $('posPayFormMobile');
+      if (mobileForm) mobileForm.style.display = 'block';
+    } else if (['pse', 'efecty', 'baloto', 'sured'].includes(methodId)) {
+      const transferForm = $('posPayFormTransfer');
+      if (transferForm) transferForm.style.display = 'block';
+    }
+    
+    // Mostrar botones
+    const backBtn = $('posPayBackBtn');
+    const confirmBtn = $('posPayConfirmBtn');
+    if (backBtn) backBtn.style.display = 'inline-block';
+    if (confirmBtn) confirmBtn.style.display = 'inline-block';
+    
+  } catch(e) {
+    console.error('❌ Error en selectPOSPaymentMethod:', e);
+    toast('❌ Error seleccionando método de pago');
+  }
+}
+
+function hideAllPaymentForms() {
+  const forms = ['posPayFormCash', 'posPayFormCard', 'posPayFormMobile', 'posPayFormTransfer', 'posPayFormCheck'];
+  forms.forEach(formId => {
+    const form = $(formId);
+    if (form) form.style.display = 'none';
+  });
+}
+
+function calcCashChange() {
+  try {
+    const receivedEl = $('posPayCashReceived');
+    if (!receivedEl) return;
+    
+    const received = parseFloat(receivedEl.value) || 0;
+    const sub = posCart.reduce((s,i)=>s+(Number(i.price||0)*Number(i.qty||0)),0);
+    const discEl = $('posDiscount');
+    const disc = discEl ? parseFloat(discEl.value) || 0 : 0;
+    const total = Math.round(sub * (1 - disc/100));
+    
+    const change = Math.max(0, received - total);
+    const changeEl = $('posPayCashChange');
+    if (changeEl) changeEl.textContent = fmt(change);
+    
+    // Cambiar color si es insuficiente
+    if (received < total) {
+      receivedEl.style.borderColor = '#e74c3c';
+    } else {
+      receivedEl.style.borderColor = 'var(--border)';
+    }
+  } catch(e) {
+    console.error('❌ Error en calcCashChange:', e);
+  }
+}
+
+function posPayBackToMethods() {
+  try {
+    const step1 = $('posPayStep1');
+    const step2 = $('posPayStep2');
+    if (step1) step1.style.display = 'block';
+    if (step2) step2.style.display = 'none';
+    
+    const backBtn = $('posPayBackBtn');
+    const confirmBtn = $('posPayConfirmBtn');
+    if (backBtn) backBtn.style.display = 'none';
+    if (confirmBtn) confirmBtn.style.display = 'none';
+    
+    posCurrentPaymentMethod = null;
+  } catch(e) {
+    console.error('❌ Error en posPayBackToMethods:', e);
+  }
+}
+
+function confirmPOSPaymentWithDetails() {
+  try {
+    if (!posCurrentPaymentMethod) {
+      toast('⚠ Selecciona un método de pago');
+      return;
+    }
+    
+    const methodId = posCurrentPaymentMethod.id;
+    let paymentDetails = { method: posCurrentPaymentMethod.name, methodId };
+    
+    // Validar según el método
+    if (methodId === 'cash') {
+      const received = parseFloat($('posPayCashReceived').value) || 0;
+      const sub = posCart.reduce((s,i)=>s+(Number(i.price||0)*Number(i.qty||0)),0);
+      const discEl = $('posDiscount');
+      const disc = discEl ? parseFloat(discEl.value) || 0 : 0;
+      const total = Math.round(sub * (1 - disc/100));
+      
+      if (received < total) {
+        toast('⚠ Monto insuficiente');
+        return;
+      }
+      paymentDetails.received = received;
+      paymentDetails.change = received - total;
+      
+    } else if (['debit', 'credit', 'visa', 'mc', 'paypal', 'stripe', 'amex'].includes(methodId)) {
+      const ref = $('posPayCardRef').value.trim();
+      const name = $('posPayCardName').value.trim();
+      const last4 = $('posPayCardLast4').value.trim();
+      
+      if (!ref || !name) {
+        toast('⚠ Completa los datos de la tarjeta');
+        return;
+      }
+      paymentDetails.reference = ref;
+      paymentDetails.cardholderName = name;
+      paymentDetails.last4Digits = last4;
+      
+    } else if (['nequi', 'daviplata', 'dale', 'rappipay', 'movii', 'tpaga'].includes(methodId)) {
+      const phone = $('posPayMobilePhone').value.trim();
+      const ref = $('posPayMobileRef').value.trim();
+      
+      if (!phone) {
+        toast('⚠ Ingresa el teléfono');
+        return;
+      }
+      paymentDetails.phone = phone;
+      paymentDetails.transactionId = ref;
+      
+    } else if (['pse', 'efecty', 'baloto', 'sured'].includes(methodId)) {
+      const bank = $('posPayTransferBank').value;
+      const ref = $('posPayTransferRef').value.trim();
+      
+      if (!bank || !ref) {
+        toast('⚠ Completa los datos de la transacción');
+        return;
+      }
+      paymentDetails.bank = bank;
+      paymentDetails.reference = ref;
+    }
+    
+    // Notas adicionales
+    const notesEl = $('posPayNotes');
+    if (notesEl && notesEl.value.trim()) {
+      paymentDetails.notes = notesEl.value.trim();
+    }
+    
+    // Correo para factura
+    const emailEl = $('posPayEmail');
+    if (emailEl && emailEl.value.trim()) {
+      const email = emailEl.value.trim();
+      // Validar formato de email básico
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        paymentDetails.invoiceEmail = email;
+      } else {
+        toast('⚠️ Formato de correo inválido');
+        return;
+      }
+    }
+    
+    // Cerrar modal y procesar venta
+    closePOSPaymentModal();
+    processPOSSaleWithPayment(paymentDetails);
+    
+  } catch(e) {
+    console.error('❌ Error en confirmPOSPaymentWithDetails:', e);
+    toast('❌ Error validando pago');
+  }
+}
+
+function processPOSSaleWithPayment(paymentDetails) {
+  try {
+    const vendorEl = $('posVendor');
+    const clientEl = $('posClient');
+    const discEl = $('posDiscount');
+    
+    const vendor = vendorEl ? vendorEl.value.trim() : 'Vendedor';
+    const client = clientEl ? clientEl.value.trim() : '—';
+    const disc = discEl ? parseFloat(discEl.value) || 0 : 0;
+    const sub = posCart.reduce((s,i)=>s+(Number(i.price||0)*Number(i.qty||0)),0);
+    const total = Math.round(sub * (1 - disc/100));
+    
+    const items = posCart.map(i=>({name:i.name,qty:i.qty,price:i.price,size:i.size}));
+    
+    const sale = {
+      id: genId(),
+      timestamp: nowStr(),
+      channel: 'fisica',
+      vendor,
+      client,
+      method: paymentDetails.method,
+      methodId: paymentDetails.methodId,
+      payment_status: 'completed',
+      subtotal: sub,
+      discount: disc,
+      total,
+      items,
+      paymentDetails: paymentDetails
+    };
+    
+    // Guardar venta
+    (async () => {
+      try {
+        await apiFetch(`${API_URL}/sales`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sale)
+        });
+        fetchSalesLog();
+      } catch(e) { console.error('Error saving POS sale:', e); }
+      
+      // Actualizar stock
+      for (const item of posCart) {
+        const p = inventory.find(x => String(x.id) === String(item.id));
+        if (p) {
+          let rem = item.qty;
+          for (const s of SIZES) {
+            if (rem <= 0) break;
+            const take = Math.min(p.stock[s] || 0, rem);
+            p.stock[s] = (p.stock[s] || 0) - take;
+            rem -= take;
+          }
+          try {
+            await apiFetch(`${API_URL}/products`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...p, category: p.cat, image: p.img })
+            });
+          } catch (e) { console.error('Error syncing stock:', e); }
+        }
+      }
+      
+      toast(`✅ Venta confirmada: ${fmt(total)} — ${paymentDetails.method}`);
+      clearPOS();
+      fetchInventory();
+      renderDashboard();
+      
+      // Opción de imprimir recibo
+      if (confirm(`✅ Venta registrada por ${fmt(total)}\n\n¿Imprimir recibo?`)) {
+        printReceipt(sale);
+      }
+    })();
+    
+  } catch(e) {
+    console.error('❌ Error en processPOSSaleWithPayment:', e);
+    toast('❌ Error procesando venta');
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   MODAL: DATOS DEL CLIENTE (POS)
+══════════════════════════════════════════════════════════ */
+let posCurrentClient = null;
+
+function openClientModal() {
+  try {
+    const overlay = $('clientModalOverlay');
+    const modal = $('clientModal');
+    
+    // Limpiar formulario
+    $('clientName').value = '';
+    $('clientPhone').value = '';
+    $('clientEmail').value = '';
+    $('clientAddress').value = '';
+    $('clientCity').value = '';
+    $('clientType').value = 'regular';
+    
+    // Si hay cliente guardado, llenar el formulario
+    if (posCurrentClient) {
+      $('clientName').value = posCurrentClient.name || '';
+      $('clientPhone').value = posCurrentClient.phone || '';
+      $('clientEmail').value = posCurrentClient.email || '';
+      $('clientAddress').value = posCurrentClient.address || '';
+      $('clientCity').value = posCurrentClient.city || '';
+      $('clientType').value = posCurrentClient.type || 'regular';
+    }
+    
+    if (overlay) overlay.classList.add('open');
+    if (modal) modal.classList.add('open');
+  } catch(e) {
+    console.error('❌ Error en openClientModal:', e);
+  }
+}
+
+function closeClientModal() {
+  try {
+    const overlay = $('clientModalOverlay');
+    const modal = $('clientModal');
+    if (overlay) overlay.classList.remove('open');
+    if (modal) modal.classList.remove('open');
+  } catch(e) {
+    console.error('❌ Error en closeClientModal:', e);
+  }
+}
+
+function saveClientData() {
+  try {
+    const name = $('clientName').value.trim();
+    const phone = $('clientPhone').value.trim();
+    const email = $('clientEmail').value.trim();
+    const address = $('clientAddress').value.trim();
+    const city = $('clientCity').value.trim();
+    const type = $('clientType').value || 'regular';
+    
+    // Validar nombre obligatorio
+    if (!name) {
+      toast('⚠️ El nombre del cliente es obligatorio');
+      return;
+    }
+    
+    // Guardar datos del cliente
+    posCurrentClient = {
+      name: name,
+      phone: phone,
+      email: email,
+      address: address,
+      city: city,
+      type: type
+    };
+    
+    // Actualizar display en el POS
+    const displayEl = $('posClientName');
+    if (displayEl) {
+      displayEl.textContent = name;
+      displayEl.style.color = 'var(--accent)';
+    }
+    
+    // Mostrar botón limpiar
+    const clearBtn = $('posClientClear');
+    if (clearBtn) clearBtn.style.display = 'block';
+    
+    // Cerrar modal
+    closeClientModal();
+    toast('✅ Cliente guardado: ' + name);
+    
+  } catch(e) {
+    console.error('❌ Error en saveClientData:', e);
+    toast('❌ Error guardando cliente');
+  }
+}
+
+function clearPOSClient() {
+  try {
+    posCurrentClient = null;
+    
+    const displayEl = $('posClientName');
+    if (displayEl) {
+      displayEl.textContent = 'Agregar cliente...';
+      displayEl.style.color = 'var(--gray-text)';
+    }
+    
+    const clearBtn = $('posClientClear');
+    if (clearBtn) clearBtn.style.display = 'none';
+    
+    toast('✅ Cliente eliminado');
+  } catch(e) {
+    console.error('❌ Error en clearPOSClient:', e);
+  }
 }
 
 /* ══════════════════════════════════════════════════════════
