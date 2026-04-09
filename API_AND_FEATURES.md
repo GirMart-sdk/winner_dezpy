@@ -1030,33 +1030,22 @@ VACUUM;
 
 ---
 
-### PROBLEMAS DE DEPLOYMENT
+### SOLUCIÓN DE PROBLEMAS LOCALES
 
-#### Q: "App funciona local pero no en producción"
+#### Q: "Base de datos corrupta o no se crea"
 **A:**
 ```bash
-# Verificar variables de entorno en plataforma
-# Railway/Heroku/Vercel: revisar "Secrets" o "Environment Variables"
-
-# NODE_ENV debe ser 'production'
-# DATABASE_URL debe ser remota (PostgreSQL)
-# JWT_SECRET debe ser diferente a dev
-
-# Revisar logs:
-# heroku logs --tail
-# o plataforma equivalente
+# Resetear la base de datos
+npm run clean
+npm run seed
 ```
 
-#### Q: "Certificado SSL inválido"
+#### Q: "Puerto 3000 ya está en uso"
 **A:**
 ```bash
-# Obtener certificado válido de Let's Encrypt
-# Usar servicio automático (Heroku, Railway)
-# O manual con Certbot
-
-# En .env:
-CERT_PATH=/ruta/certificado.pem
-KEY_PATH=/ruta/clave-privada.key
+# Cambiar puerto en .env
+PORT=3001
+npm start
 ```
 
 ---
