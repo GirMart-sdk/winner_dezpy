@@ -1,0 +1,11 @@
+node_modules/
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+.env
+.env.production
+.vscode/
+.gemini/
+*.log
+logs/
+certs/
