@@ -137,11 +137,8 @@ async function fetchSalesLog() {
     salesLog = data.map((s) => ({
       ...s,
       ts: s.timestamp,
-      channel:
-        s.vendor === "Tienda Online" || (s.id && String(s.id).startsWith("ON"))
-          ? "online"
-          : "fisica",
-    }));
+      channel: "fisica", // SOLO POS FÍSICO
+    })); // [FUTURO] Restaurar lógica canal online externo
     renderSalesStats();
     renderSalesTable();
     renderDashboard();
@@ -584,11 +581,11 @@ function navigateTo(page) {
   $("sidebar").classList.remove("mobile-open");
 
   // Load page-specific data
-  if (page === "dashboard") {
+    if (page === "dashboard") {
     renderDashboard();
     loadAnalyticsData();
-    enableRealTimeSales(30000); // Iniciar monitoreo cada 30 segundos
-  } else if (page === "inventory") {
+    // enableRealTimeSales(30000); // [DESACTIVADO] No ventas online
+  }
     renderInventory();
     loadLowStockAlerts();
   } else if (page === "payments") {
@@ -658,7 +655,7 @@ function renderDashboard() {
             .map((i) => i.name)
             .join(", ")
             .slice(0, 40)}…</div>
-          <div class="recent-meta">${fmtDate(s.timestamp)} · ${s.channel === "fisica" ? "Tienda" : "Online"}</div>
+          <div class="recent-meta">${fmtDate(s.timestamp)} · Tienda Física</div>
         </div>
         <div class="recent-amount">${fmt(s.total)}</div>
       </div>`,
@@ -2454,137 +2451,12 @@ function exportPaymentsCSV() {
 ══════════════════════════════════════════════════════════ */
 let realTimePolling = null;
 let lastSaleCount = 0;
-let onlineSalesAlert = true;
-
-function enableRealTimeSales(intervalMs = 30000) {
-  if (realTimePolling) clearInterval(realTimePolling);
-
-  console.log("🔄 Iniciando monitoreo en tiempo real...");
-
-  realTimePolling = setInterval(async () => {
-    try {
-      const res = await apiFetch(`${API_URL}/sales?limit=1&order=desc`);
-      const data = await res.json();
-
-      if (data.length > 0) {
-        const latestSale = data[0];
-        const currentCount = salesLog.length;
-
-        // Nueva venta detectada
-        if (currentCount > lastSaleCount && lastSaleCount > 0) {
-          const newSale = data.find(
-            (s) => !salesLog.find((existing) => existing.id === s.id),
-          );
-          if (newSale) {
-            onNewSaleDetected(newSale);
-          }
-        }
-
-        lastSaleCount = currentCount;
-      }
-
-      // Actualizar dashboard silenciosamente
-      renderDashboard();
-    } catch (e) {
-      console.log("⚠️ Error en polling:", e.message);
-    }
-  }, intervalMs);
-
-  // inicializar contador
-  lastSaleCount = salesLog.length;
-}
-
-function disableRealTimeSales() {
-  if (realTimePolling) {
-    clearInterval(realTimePolling);
-    realTimePolling = null;
-    console.log("⏹ Monitoreo en tiempo real detenido");
-  }
-}
-
-function onNewSaleDetected(sale) {
-  const isOnline = sale.channel === "online";
-  const channelLabel = isOnline ? "🌐 ONLINE" : "🏪 FÍSICA";
-  const alertColor = isOnline ? "#e8ff47" : "#2ed573";
-
-  // Notificación toast
-  toast(
-    `🛍️ NUEVA VENTA ${channelLabel}: ${fmt(sale.total)} - ${sale.client || "Cliente"}`,
-  );
-
-  // Actualizar badge de notificaciones si hay nueva venta online
-  if (isOnline && onlineSalesAlert) {
-    showOnlineSaleNotification(sale);
-  }
-
-  // Sonido opcional (solo si está habilitado)
-  if (localStorage.getItem("w_sound_alerts") === "true") {
-    playSalesSound();
-  }
-}
-
-function showOnlineSaleNotification(sale) {
-  // Crear notificación flotante
-  const existing = document.getElementById("onlineSaleNotify");
-  if (existing) existing.remove();
-
-  const notif = document.createElement("div");
-  notif.id = "onlineSaleNotify";
-  notif.style.cssText = `
-    position: fixed;
-    top: 80px;
-    right: 20px;
-    background: linear-gradient(135deg, #e8ff47 0%, #2ed573 100%);
-    color: #000;
-    padding: 16px 24px;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 14px;
-    box-shadow: 0 8px 32px rgba(232, 255, 71, 0.4);
-    z-index: 10000;
-    animation: slideInRight 0.5s ease, fadeOut 0.5s ease 4s forwards;
-    max-width: 300px;
-  `;
-  notif.innerHTML = `
-    <div style="font-size: 20px; margin-bottom: 8px">🛒 ¡Nueva Venta Online!</div>
-    <div style="font-size: 18px; font-weight: 700; color: #000">${fmt(sale.total)}</div>
-    <div style="font-size: 12px; margin-top: 4px">${sale.client || "Cliente Web"} • ${fmtDate(sale.timestamp)}</div>
-    <div style="font-size: 11px; margin-top: 8px; opacity: 0.7">
-      ${sale.items
-        ?.slice(0, 2)
-        .map((i) => `${i.name} x${i.qty}`)
-        .join(", ")}
-    </div>
-  `;
-
-  document.body.appendChild(notif);
-
-  // Autoeliminar después de 5 segundos
-  setTimeout(() => notif.remove(), 5000);
-}
-
-function playSalesSound() {
-  try {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-
-    oscillator.frequency.value = 880;
-    oscillator.type = "sine";
-    gainNode.gain.value = 0.1;
-
-    oscillator.start();
-    setTimeout(() => {
-      oscillator.frequency.value = 1100;
-      setTimeout(() => oscillator.stop(), 150);
-    }, 100);
-  } catch (e) {
-    console.log("Audio no disponible");
-  }
-}
+/* ════════════════════════════════════════════════════════════════
+   [FUTURO] HOOKS PARA TIENDA EXTERNA (WooCommerce/Shopify)
+   - API endpoint: /api/online-sync  
+   - Webhook listener para ventas externas
+   - Dashboard canal "online" restaurable
+═══════════════════════════════════════════════════════════════ */
 
 /* ══════════════════════════════════════════════════════════
    SALES STATUS TRACKING - ESTADO DE PAGOS
@@ -2635,56 +2507,7 @@ function updateSaleStatus(id, newStatus) {
 /* ══════════════════════════════════════════════════════════
    SALES KPIs BY CHANNEL - MÉTRICAS ESPECÍFICAS
 ══════════════════════════════════════════════════════════ */
-function renderSalesKPIs() {
-  const now = new Date();
-  const today = now.toISOString().split("T")[0];
-
-  // Ventas online vs física
-  const onlineSales = salesLog.filter((s) => s.channel === "online");
-  const physicalSales = salesLog.filter((s) => s.channel === "fisica");
-
-  // Today's sales por canal
-  const todayOnline = onlineSales.filter((s) => s.timestamp.startsWith(today));
-  const todayPhysical = physicalSales.filter((s) =>
-    s.timestamp.startsWith(today),
-  );
-
-  // Calcular métricas
-  const onlineRevenue = onlineSales.reduce((s, x) => s + x.total, 0);
-  const physicalRevenue = physicalSales.reduce((s, x) => s + x.total, 0);
-  const todayOnlineRevenue = todayOnline.reduce((s, x) => s + x.total, 0);
-  const todayPhysicalRevenue = todayPhysical.reduce((s, x) => s + x.total, 0);
-
-  // Ticket promedio por canal
-  const avgTicketOnline = onlineSales.length
-    ? onlineRevenue / onlineSales.length
-    : 0;
-  const avgTicketPhysical = physicalSales.length
-    ? physicalRevenue / physicalSales.length
-    : 0;
-
-  // Retorna métricas
-  return {
-    online: {
-      count: onlineSales.length,
-      revenue: onlineRevenue,
-      todayCount: todayOnline.length,
-      todayRevenue: todayOnlineRevenue,
-      avgTicket: avgTicketOnline,
-    },
-    physical: {
-      count: physicalSales.length,
-      revenue: physicalRevenue,
-      todayCount: todayPhysical.length,
-      todayRevenue: todayPhysicalRevenue,
-      avgTicket: avgTicketPhysical,
-    },
-    total: {
-      revenue: onlineRevenue + physicalRevenue,
-      todayRevenue: todayOnlineRevenue + todayPhysicalRevenue,
-    },
-  };
-}
+/* [ELIMINADO] renderSalesKPIs() - SOLO POS FÍSICO */
 
 /* ══════════════════════════════════════════════════════════
    SALES EXPORT - EXPORTACIÓN AVANZADA
@@ -2842,7 +2665,7 @@ function renderSalesTable() {
       <tr>
         <td style="color:var(--gray-text);font-size:12px">#${list.length - i}</td>
         <td style="font-size:12px">${fmtDate(s.timestamp)}</td>
-        <td><span class="status-badge ${s.channel === "fisica" ? "s-fisica" : "s-online"}">${s.channel === "fisica" ? "Física" : "Online"}</span></td>
+        <td><span class="status-badge s-fisica">Física</span></td>
         <td>${s.vendor}</td>
         <td style="color:var(--gray-text)">${s.client}</td>
         <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">

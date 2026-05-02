@@ -629,14 +629,12 @@ function renderAdminSalesTable() {
         color: "#e8ff47",
         bg: "rgba(232,255,71,0.1)",
       };
-      const isOnline =
-        s.vendor === "Tienda Online" || (s.id && String(s.id).startsWith("ON"));
       return `<tr>
       <td style="font-size:12px">${admFmtDate(s.timestamp)}</td>
       <td>${s.vendor}</td>
       <td style="color:var(--gray-text)">${s.client}</td>
       <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.items.map((i) => `${i.name} ×${i.qty}`).join(", ")}</td>
-      <td><span class="pm-tag" style="background:${cfg.bg};color:${cfg.color};border:1px solid ${isOnline ? "var(--accent)" : "transparent"}">${s.method}</span></td>
+      <td><span class="pm-tag" style="background:${cfg.bg};color:${cfg.color}">${s.method}</span></td>
       <td style="font-weight:700;color:var(--accent)">${admFmt(s.total)}</td>
       <td><button class="adm-action-btn del" onclick="deleteSaleAdmin('${s.id}')">✕</button></td>
     </tr>`;

@@ -222,16 +222,16 @@ async function registerOnlineSale(methodName) {
   const total = subtotal + shippingCost;
 
   const saleData = {
-    id: "ON" + Date.now().toString(36).toUpperCase(),
+    id: "POS" + Date.now().toString(36).toUpperCase(),
     timestamp: new Date().toISOString(),
-    vendor: "Tienda Online",
+    vendor: "Tienda Física", // [FUTURO] Restaurar "Tienda Online" externa
     client: paymentData.customer.name || "Cliente Web",
     email: paymentData.customer.email,
     phone: paymentData.customer.phone,
     address: paymentData.customer.address,
     city: paymentData.customer.city,
     method: methodName,
-    channel: "online",
+    channel: "fisica", // [FUTURO] Restaurar canal "online" externo
     subtotal: subtotal,
     shippingCost: shippingCost,
     shippingMethod: paymentData.shipping.method,
