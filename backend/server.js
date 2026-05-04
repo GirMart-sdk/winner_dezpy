@@ -650,7 +650,7 @@ app.get("/api/products/:id", requireApiKey, (req, res) => {
   });
 });
 
-// POST /api/products — crear o actualizar producto
+// POST /api/products — crear o actualizar producto (FIXED SKU UNIQUE)
 app.post("/api/products", requireAuth, (req, res) => {
   const {
     id,
@@ -662,109 +662,141 @@ app.post("/api/products", requireAuth, (req, res) => {
     image,
     badge,
     badgeType,
-    sku,
+    sku: providedSku,
     description,
     stock,
   } = req.body;
 
   // Validar datos requeridos
-  if (!name || !price) {
-    return res
-      .status(400)
-      .json({ error: "name y price son requeridos", success: false });
+  if (!name || !price || isNaN(price) || price <= 0) {
+    return res.status(400).json({
+      error: "name y price válido (>0) son requeridos",
+      success: false,
+    });
   }
 
   const productId = id || "P" + Date.now().toString(36).toUpperCase();
+  let safeSku =
+    providedSku || `WIN-${Date.now().toString(36).slice(-6).toUpperCase()}`;
 
-  // Usar callback correctamente
-  db.run(
-    `
-    INSERT INTO products (id, name, price, oldPrice, cost, category, image, badge, badgeType, sku, description)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET
-      name        = excluded.name,
-      price       = excluded.price,
-      oldPrice    = excluded.oldPrice,
-      cost        = excluded.cost,
-      category    = excluded.category,
-      image       = excluded.image,
-      badge       = excluded.badge,
-      badgeType   = excluded.badgeType,
-      sku         = excluded.sku,
-      description = excluded.description
-  `,
-    [
-      productId,
-      name,
-      price,
-      oldPrice || null,
-      cost || 0,
-      category || null,
-      image || null,
-      badge || null,
-      badgeType || null,
-      sku || null,
-      description || null,
-    ],
-    function (sqliteErr) {
-      if (sqliteErr) {
-        console.error("❌ Error inserting product:", sqliteErr);
-        return res
-          .status(500)
-          .json({ error: sqliteErr.message, success: false });
+  // Verificar SKU único si es nuevo producto O SKU cambió
+  db.get(
+    "SELECT id FROM products WHERE sku = ? AND id != ?",
+    [safeSku, productId],
+    (err, existing) => {
+      if (err) {
+        console.error("❌ Error checking SKU:", err);
+        return res.status(500).json({ error: err.message, success: false });
+      }
+      if (existing) {
+        return res.status(409).json({
+          success: false,
+          error: `SKU "${safeSku}" ya existe (ID: ${existing.id})`,
+          suggestion: "Cambia SKU o edita el producto existente",
+        });
       }
 
-      // Actualizar stock si existe
-      if (stock && typeof stock === "object") {
-        const stockEntries = Object.entries(stock);
-        let stocksUpdated = 0;
+      // Proceder con INSERT/UPDATE — preservar SKU original en UPDATE
+      const updateSet = `
+      name = excluded.name,
+      price = excluded.price,
+      oldPrice = excluded.oldPrice,
+      cost = excluded.cost,
+      category = excluded.category,
+      image = excluded.image,
+      badge = excluded.badge,
+      badgeType = excluded.badgeType,
+      description = excluded.description,
+      sku = COALESCE((SELECT sku FROM products WHERE id = excluded.id), excluded.sku),
+      updated_at = CURRENT_TIMESTAMP
+    `;
 
-        const stmt = db.prepare(`
-        INSERT INTO inventory (product_id, size, qty) VALUES (?, ?, ?)
-        ON CONFLICT(product_id, size) DO UPDATE SET qty = excluded.qty
-      `);
+      db.run(
+        `
+      INSERT INTO products (id, name, price, oldPrice, cost, category, image, badge, badgeType, sku, description)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET ${updateSet}
+    `,
+        [
+          productId,
+          name,
+          price,
+          oldPrice || null,
+          cost || 0,
+          category || null,
+          image || null,
+          badge || null,
+          badgeType || null,
+          safeSku,
+          description || null,
+        ],
+        function (sqliteErr) {
+          if (sqliteErr) {
+            console.error("❌ Error saving product:", sqliteErr);
+            return res.status(500).json({
+              error: sqliteErr.message,
+              success: false,
+              details: "SQLite error — contacta administrador",
+            });
+          }
 
-        stockEntries.forEach(([size, qty]) => {
-          stmt.run(productId, size, Number(qty) || 0, (err) => {
-            if (err) console.error("❌ Error updating stock:", err);
-            stocksUpdated++;
+          console.log(
+            `✅ Producto ${this.changes > 0 ? "actualizado" : "creado"}: ${productId} (${safeSku})`,
+          );
 
-            // Cuando terminen todos los stocks, enviar respuesta
-            if (stocksUpdated === stockEntries.length) {
-              stmt.finalize((finalErr) => {
-                if (finalErr) {
-                  console.error("❌ Error finalizing statement:", finalErr);
-                  return res
-                    .status(500)
-                    .json({ error: finalErr.message, success: false });
+          // Actualizar stock si existe
+          if (stock && typeof stock === "object") {
+            const stockEntries = Object.entries(stock);
+            let stocksUpdated = 0;
+            const stmt = db.prepare(`
+            INSERT INTO inventory (product_id, size, qty) VALUES (?, ?, ?)
+            ON CONFLICT(product_id, size) DO UPDATE SET qty = excluded.qty, updated_at = CURRENT_TIMESTAMP
+          `);
+
+            stockEntries.forEach(([size, qty]) => {
+              stmt.run(productId, size, Number(qty) || 0, (err) => {
+                if (err) console.error(`❌ Stock error ${size}:`, err);
+                stocksUpdated++;
+
+                if (stocksUpdated === stockEntries.length) {
+                  stmt.finalize((finalErr) => {
+                    if (finalErr) {
+                      console.error("❌ Finalize error:", finalErr);
+                      return res
+                        .status(500)
+                        .json({ error: finalErr.message, success: false });
+                    }
+                    res.json({
+                      success: true,
+                      id: productId,
+                      sku: safeSku,
+                      message: `Producto ${this.changes > 0 ? "actualizado" : "creado"} ✓`,
+                      changes: this.changes,
+                    });
+                  });
                 }
-                res.json({
-                  success: true,
-                  id: productId,
-                  message: "Producto guardado exitosamente",
-                });
+              });
+            });
+
+            if (stockEntries.length === 0) {
+              stmt.finalize();
+              res.json({
+                success: true,
+                id: productId,
+                sku: safeSku,
+                message: "Producto guardado ✓",
               });
             }
-          });
-        });
-
-        // Si no hay stocks, enviar respuesta inmediatamente
-        if (stockEntries.length === 0) {
-          stmt.finalize();
-          res.json({
-            success: true,
-            id: productId,
-            message: "Producto guardado exitosamente",
-          });
-        }
-      } else {
-        // Sin stock, enviar respuesta inmediatamente
-        res.json({
-          success: true,
-          id: productId,
-          message: "Producto guardado exitosamente",
-        });
-      }
+          } else {
+            res.json({
+              success: true,
+              id: productId,
+              sku: safeSku,
+              message: "Producto guardado ✓",
+            });
+          }
+        },
+      );
     },
   );
 });
@@ -2067,16 +2099,16 @@ function fallbackToHttp() {
   http.createServer(app).listen(PORT, () => {
     console.log(`
 ╔══════════════════════════════════════════════╗
-║   WINNER STORE  —  Servidor v2.0             ║
+║   WINNER POS  —  POS Físico v4.0             ║
 ╠══════════════════════════════════════════════╣
-║   🌐  http://localhost:${PORT}                  ║
+║   🌐  http://localhost:${PORT}/admin-panel.html ║
 ║   🔑  Admin: admin / winner2026              ║
 ║   📦  API:   /api/products                  ║
 ║   📊  Stats: /api/stats                     ║
 ║   🛒  Feed:  /merchant-feed.csv             ║
+║   💰  $21.8MM ventas físicas demo           ║
 ║                                              ║
-║   ⚠️  DESARROLLO: HTTP habilitado             ║
-║   En producción usar HTTPS                  ║
+║   ⚠️  POS FÍSICO PURO (online eliminado)     ║
 ╚══════════════════════════════════════════════╝`);
   });
 }

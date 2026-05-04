@@ -73,10 +73,12 @@ let payLog = LS.get("payLog", []);
 let payMethods = null; // initialized after function definitions
 
 if (typeof API_URL === "undefined") {
-  const origin = window.location.origin.startsWith("file:")
-    ? "http://localhost:3000"
-    : window.location.origin;
-  window.API_URL = `${origin.replace(/\/$/, "")}/api`;
+  // Dev: localhost:3000 | Prod: mismo origen
+  const isLocalFile = window.location.origin.startsWith("file:");
+  window.API_URL = isLocalFile
+    ? "http://localhost:3000/api"
+    : `${window.location.origin.replace(/\/$/, "")}/api`;
+  console.log("🔗 API_URL detectada:", window.API_URL);
 }
 const API_KEY =
   window.API_KEY ||
@@ -172,7 +174,7 @@ function defaultInventory() {
       price: 89990,
       cost: 42000,
       sku: "WIN-001",
-      img: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=300&q=75",
+img: "https://via.placeholder.com/400x500/1a1a1a/ffffff?text=W+PRODUCTO"
       stock: { XS: 4, S: 8, M: 12, L: 6, XL: 3, XXL: 0 },
     },
     {
@@ -182,7 +184,7 @@ function defaultInventory() {
       price: 79990,
       cost: 35000,
       sku: "WIN-002",
-      img: "https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?w=300&q=75",
+img: "https://via.placeholder.com/400x500/1a1a1a/ffffff?text=W+PRODUCTO"
       stock: { XS: 0, S: 5, M: 9, L: 7, XL: 4, XXL: 1 },
     },
     {
@@ -192,7 +194,7 @@ function defaultInventory() {
       price: 189990,
       cost: 90000,
       sku: "WIN-003",
-      img: "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=300&q=75",
+img: "https://via.placeholder.com/400x500/1a1a1a/ffffff?text=W+PRODUCTO"
       stock: { XS: 1, S: 3, M: 5, L: 3, XL: 2, XXL: 0 },
     },
     {
@@ -202,7 +204,7 @@ function defaultInventory() {
       price: 99990,
       cost: 48000,
       sku: "WIN-004",
-      img: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=300&q=75",
+img: "https://via.placeholder.com/400x500/1a1a1a/ffffff?text=W+PRODUCTO"
       stock: { XS: 6, S: 10, M: 8, L: 4, XL: 2, XXL: 0 },
     },
     {
@@ -212,7 +214,7 @@ function defaultInventory() {
       price: 39990,
       cost: 15000,
       sku: "WIN-005",
-      img: "https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?w=300&q=75",
+img: "https://via.placeholder.com/400x500/1a1a1a/ffffff?text=W+ACCESORIO"
       stock: { U: 50 },
     },
     {
@@ -581,11 +583,11 @@ function navigateTo(page) {
   $("sidebar").classList.remove("mobile-open");
 
   // Load page-specific data
-    if (page === "dashboard") {
+  if (page === "dashboard") {
     renderDashboard();
     loadAnalyticsData();
     // enableRealTimeSales(30000); // [DESACTIVADO] No ventas online
-  }
+  } else if (page === "inventory") {
     renderInventory();
     loadLowStockAlerts();
   } else if (page === "payments") {
@@ -996,7 +998,7 @@ async function saveProduct() {
   const name = $("pName").value.trim();
   const price = parseFloat($("pPrice").value);
   const cost = parseFloat($("pCost").value) || 0;
-  const sku = $("pSku").value.trim();
+  let skuInput = $("pSku").value.trim();
   const img = $("pImg").value.trim();
   const cat = $("pCat").value;
 
@@ -1009,6 +1011,10 @@ async function saveProduct() {
     toast("⚠ El precio debe ser un número mayor a 0");
     return;
   }
+
+  // SKU: usar input O auto-generar
+  const safeSku = skuInput || `WIN-${Date.now().toString(36).slice(-6).toUpperCase()}`;
+  $("pSku").value = safeSku; // Mostrar en UI
 
   const stock = {};
   const sizes = getSizesForCategory(cat);
@@ -1028,15 +1034,15 @@ async function saveProduct() {
     name,
     price,
     cost,
-    sku: sku || `WIN-${Date.now().toString().slice(-4)}`,
+    sku: safeSku,
     image: img,
     category: cat,
     stock,
   };
 
   try {
-    toast("💾 Guardando producto...");
-    console.log("📤 Enviando datos:", productData);
+    toast(`💾 ${id ? 'Actualizando' : 'Creando'} "${name}"...`);
+    console.log("📤 Enviando:", productData);
 
     const res = await apiFetch(`${API_URL}/products`, {
       method: "POST",
@@ -1045,38 +1051,58 @@ async function saveProduct() {
     });
 
     const responseText = await res.text();
-    console.log(`📥 Respuesta (${res.status}):`, responseText);
+    console.log(`📥 ${res.status}:`, responseText.substring(0, 300));
 
     let result;
     try {
       result = JSON.parse(responseText);
     } catch {
-      console.error(
-        "❌ JSON Parsing Error. Text:",
-        responseText.substring(0, 200),
-      );
-      toast(
-        `⚠ Respuesta inválida del servidor: ${responseText.substring(0, 100)}`,
-      );
+      console.error("❌ JSON inválido:", responseText.substring(0, 200));
+      toast("⚠ Error: Respuesta del servidor corrupta");
       return;
     }
 
+    // ✅ SUCCESS
     if (res.ok && result.success) {
       fetchInventory();
-      toast(id ? "✓ Producto actualizado" : "✓ Producto creado");
+      toast(`${id ? '✎' : '➕'} ${result.message || (id ? 'Actualizado' : 'Creado')} ✓`);
       closeProductModal();
-    } else if (res.status === 401) {
-      toast("⚠ Sesión expirada. Por favor, inicia sesión nuevamente");
-      doLogout();
-    } else {
-      toast(`⚠ Error: ${result.error || "No se pudo guardar el producto"}`);
-      console.error("Server error response:", result);
+      return;
     }
+
+    // ❌ ERRORES ESPECÍFICOS
+    if (res.status === 409 && result.error?.includes('SKU')) {
+      // SKU ya existe → Auto-edit
+      toast(`⚠ ${result.error} → Editando existente...`);
+      const existingId = result.existingId || result.error.match(/ID: ([A-Z0-9]+)/)?.[1];
+      if (existingId) {
+        setTimeout(() => editProduct(existingId), 800);
+      }
+      return;
+    }
+
+    if (res.status === 401) {
+      toast("⚠️ Sesión expirada → Re-login");
+      doLogout();
+      return;
+    }
+
+    if (res.status === 400) {
+      toast(`⚠️ Datos inválidos: ${result.error || 'Revisa precio/nombre'}`);
+      return;
+    }
+
+    // Errores genéricos
+    const errorMsg = result.error || result.message || "Error desconocido";
+    toast(`❌ ${errorMsg}`);
+    console.error("Server response:", result);
+
   } catch (e) {
-    console.error("❌ Error saving product:", e);
-    toast(`⚠ Error de conexión: ${e.message}`);
+    console.error("❌ Network error:", e);
+    toast(`⚠️ Sin conexión: ${e.message}`);
   }
 }
+
 
 /* ══════════════════════════════════════════════════════════
    CARGA DE IMÁGENES — Image Upload

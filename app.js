@@ -4,24 +4,13 @@
 
 /* ── API CONFIG ─────────────────────────────────────────── */
 const API_URL = (() => {
-  // Permite inyectar una URL custom (ej: deploy) antes de cargar este script.
-  if (typeof window.API_URL === "string" && window.API_URL.trim()) {
-    return window.API_URL.replace(/\/$/, "");
-  }
-
-  // Si se abre el HTML desde archivo local, asumimos backend local.
-  if (window.location.origin.startsWith("file:")) {
-    // Preferir HTTPS en desarrollo remoto, HTTP solo en localhost
-    const protocol = localStorage.getItem("apiProtocol") || "http";
-    return `${protocol}://localhost:3000/api`;
-  }
-
-  // En producción: usar HTTPS siempre
-  // En desarrollo: usar el mismo protocolo que la página
-  const origin = window.location.origin;
-  const apiProtocol = origin.startsWith("https") ? "https" : "http";
-
-  return `${origin.replace(/\/$/, "")}/api`;
+  // Dev: localhost:3000 | Prod: mismo origen
+  const isLocalFile = window.location.origin.startsWith("file:");
+  window.API_URL = isLocalFile
+    ? "http://localhost:3000/api"
+    : `${window.location.origin.replace(/\/$/, "")}/api`;
+  console.log("🔗 API_URL detectada:", window.API_URL);
+  return window.API_URL;
 })();
 
 window.API_URL = API_URL;

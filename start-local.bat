@@ -1,103 +1,42 @@
 @echo off
-REM ════════════════════════════════════════════════════════════════
-REM WINNER STORE - Iniciador Local Automático
-REM Script para iniciar la tienda automáticamente en Windows
-REM ════════════════════════════════════════════════════════════════
-
-setlocal enabledelayedexpansion
-
-REM Colores (ASCII codes)
-for /F %%A in ('echo prompt $H ^| cmd') do set "BS=%%A"
-
-cd /d "%~dp0"
-title WINNER STORE - Servidor Local
-
-echo.
-echo ╔════════════════════════════════════════════════════════════════╗
-echo ║                                                                ║
-echo ║         🏆  WINNER STORE - SERVIDOR LOCAL                    ║
-echo ║                                                                ║
-echo ║         🌐  http://localhost:3000                            ║
-echo ║         👤  Admin: admin / winner2026                        ║
-echo ║                                                                ║
-echo ║         ⏱️   Iniciando en 3 segundos...                       ║
-echo ║                                                                ║
-echo ╚════════════════════════════════════════════════════════════════╝
+echo 🌱 Iniciando WINNER STORE - Modo LOCAL (Puerto 3000)
 echo.
 
-timeout /t 3 /nobreak
+REM Limpiar procesos Node anteriores
+taskkill /f /im node.exe 2>nul
+timeout /t 2 /nobreak >nul
 
-REM Verificar que npm está instalado
-echo [Verificando npm...]
-npm -v >nul 2>&1
-if %errorlevel% neq 0 (
-    echo.
-    echo ❌ ERROR: npm no está instalado
-    echo.
-    echo Soluciones:
-    echo 1. Instala Node.js: https://nodejs.org
-    echo 2. Descarga LTS (versión recomendada)
-    echo 3. Ejecuta el instalador
-    echo 4. Reinicia esta ventana
-    echo.
-    pause
-    exit /b 1
-)
-echo ✅ npm encontrado
-
-REM Verificar dependencias
-echo [Verificando dependencias...]
+REM Instalar dependencias si no existen
 if not exist "node_modules" (
-    echo ⚠️  Primera vez? Instalando node_modules...
-    call npm install
-    if %errorlevel% neq 0 (
-        echo ❌ Error en npm install
-        pause
-        exit /b 1
-    )
-    echo ✅ Dependencias instaladas
-) else (
-    echo ✅ node_modules existe
+  echo 📦 Instalando dependencias...
+  npm install --silent
 )
 
-REM Verificar BD
-echo [Verificando base de datos...]
+REM Semilla de datos (solo si DB vacía)
 if not exist "backend\winner_store.db" (
-    echo ⚠️  BD no existe, creando...
-    call npm run seed
-    if %errorlevel% neq 0 (
-        echo ❌ Error inicializando BD
-        pause
-        exit /b 1
-    )
-    echo ✅ BD creada con datos iniciales
+  echo 🗄️  Creando base de datos...
+  cd backend
+  node seed.js
+  cd ..
 ) else (
-    echo ✅ BD existe
+  echo ✅ BD detectada: backend\winner_store.db
 )
 
-echo.
-echo ════════════════════════════════════════════════════════════════
-echo.
-echo 🚀 INICIANDO SERVIDOR...
-echo.
-echo 📍 Frontend:   http://localhost:3000
-echo 📍 API:        http://localhost:3000/api
-echo 📍 Admin:      http://localhost:3000/admin-panel.html
-echo.
-echo 👤 Credenciales Admin:
-echo    Usuario: admin
-echo    Password: winner2026
-echo.
-echo 🛑 Para detener: Presiona Ctrl+C en esta ventana
-echo.
-echo ════════════════════════════════════════════════════════════════
+REM Iniciar servidor en puerto 3000 HTTP (LOCAL)
+set NODE_ENV=development
+set PORT=3000
+echo 🚀 Servidor → http://localhost:3000
+echo 🔐 Admin → admin-panel.html (admin/winner2026)
 echo.
 
-REM Iniciar servidor
-call npm start
+npm start
 
-REM Si llega aquí, servidor se detuvo
+REM Abrir admin automáticamente
+timeout /t 3 /nobreak >nul
+start admin-panel.html
+start index.html
+
 echo.
-echo ⚠️  Servidor detenido
-echo.
+echo 🎉 WINNER STORE LISTO!
+echo Presiona Ctrl+C para detener.
 pause

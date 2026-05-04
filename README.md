@@ -1,37 +1,127 @@
-# 🏆 WINNER STORE v3.0 — Official Edition
+# 🏆 WINNER POS v4.0 — POS FÍSICO PROFESIONAL
 
-**WINNER STORE** es la plataforma de e-commerce más completa y profesional para tiendas de ropa streetwear en Colombia. ✨
+**WINNER POS** es el sistema de punto de venta más completo para tiendas físicas de ropa streetwear en Colombia. **SOLO FÍSICO** (online eliminado). ✨
 
-**Estado:** ✅ **PRODUCTION READY v3.0** — 100% Completo y Documentado
-
----
-
-## 📚 CONFIGURACIÓN: 100% SERVIDOR LOCAL
-
-**Tu tienda en tu máquina — Sin servicios externos**
-
-Consulta:
-
-- **[SETUP_COMPLETE_LOCAL.md](SETUP_COMPLETE_LOCAL.md)** — Guía completa de instalación
-- **[API_AND_FEATURES.md](API_AND_FEATURES.md)** — Documentación de API y características
-- **[PAYMENT_SYSTEM.md](PAYMENT_SYSTEM.md)** — Sistema de pagos integrado
+**Estado:** ✅ **POS FÍSICO PURO v4.0** — 100% Productivo
 
 ---
 
-## 🎯 Características Principales
+## 📱 POS FÍSICO COMPLETO
 
-- ✅ **Tienda Online Moderna** - Frontend responsive con diseño premium
-- ✅ **6 Métodos de Pago** - Tarjeta Crédito, Tarjeta Débito, PSE, Nequi, Daviplata, Efectivo
-- ✅ **Admin Panel Completo** - Gestión de productos, ventas, inventario
-- ✅ **Sistema de Inventario** - Control por talla con códigos QR
-- ✅ **Análisis en Tiempo Real** - Dashboards con Chart.js
-- ✅ **26 Productos Precargados** - 73 ventas de ejemplo
-- ✅ **Autenticación Segura** - API Key + JWT
-- ✅ **BD Dual Compatible** - SQLite (dev) + PostgreSQL (prod)
-- ✅ **Base de Datos Persistente** - Con backup automático
-- ✅ **30+ API Endpoints** - REST completa y documentada
-- ✅ **HTTPS/SSL Configurado** - Certificados SSL generados
-- ✅ **Sistema de Tallas** - Por categoría (ropa, calzado, accesorios)
+**Características principales:**
+
+```
+✅ Carrito POS + pagos QR/Nequi/Daviplata/Efectivo
+✅ Escáner QR por talla (XS-XXL, calzado 34-43)
+✅ Dashboard físico ($21.8MM ventas ejemplo)
+✅ Inventario con alerts stock bajo
+✅ Facturas imprimibles automáticas
+✅ Charts ventas/métodos/pago
+✅ 26 productos precargados
+```
+
+---
+
+## 🚀 Inicio (30 segundos)
+
+```bash
+npm install
+npm run seed          # 73 ventas físicas
+npm start             # localhost:3000
+```
+
+**Admin POS:**
+
+```
+📱 http://localhost:3000/admin-panel.html
+🔑 admin / winner2026
+```
+
+---
+
+## 💳 Métodos de Pago Integrados
+
+| Método          | Icono | Estado |
+| --------------- | ----- | ------ |
+| Efectivo        | 💵    | ✅     |
+| Nequi           | 📱    | ✅     |
+| Daviplata       | 📱    | ✅     |
+| PSE             | 🏦    | ✅     |
+| Tarjeta Débito  | 💳    | ✅     |
+| Tarjeta Crédito | 💳    | ✅     |
+
+**Todos con validación tiempo real.**
+
+---
+
+## 📊 Base de Datos
+
+**SQLite persistente** (`backend/winner_store.db`):
+
+```
+✅ 26 productos (8 mujer, 8 hombre, 9 accesorios, 1 calzado)
+✅ Stock por talla diferenciada
+✅ 73 ventas físicas ejemplo ($21.8MM)
+✅ Analytics POS ready
+```
+
+**Reset:**
+
+```bash
+npm run seed
+```
+
+---
+
+## 🛠️ URLs del Sistema
+
+```
+🌐 POS Admin: localhost:3000/admin-panel.html
+📦 API: localhost:3000/api/products
+📊 Stats: localhost:3000/api/stats
+🛒 Feed: localhost:3000/merchant-feed.csv
+```
+
+---
+
+## 🔧 Configuración (.env)
+
+```env
+NODE_ENV=production
+PORT=3000
+API_KEY=prod-api-key-winner-2026
+ADMIN_PASSWORD=winner2026
+```
+
+**Ya configurado por defecto.**
+
+---
+
+## 📱 Funcionalidades POS
+
+```
+✅ Carrito con talla + stock real-time
+✅ Pagos QR/efectivo/billeteras
+✅ Dashboard ventas físicas
+✅ Alertas stock bajo/crítica
+✅ Códigos QR por producto
+✅ Facturación automática
+✅ Export CSV ventas/inventario
+✅ Responsive tablet/PC
+```
+
+---
+
+## 🎉 ¡POS PROFESIONAL LISTO!
+
+```
+1. npm install
+2. npm run seed
+3. npm start
+4. localhost:3000/admin-panel.html
+```
+
+**¡Tu POS físico está listo para producción! 🚀**
 
 ---
 
