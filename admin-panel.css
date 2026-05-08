@@ -1053,8 +1053,8 @@ textarea {
   color: var(--accent);
   text-shadow: 0 3px 8px rgba(200, 232, 15, 0.18);
   background: linear-gradient(115deg, #d6ff5f 0%, #b3f62f 55%, #8bdc1c 100%);
-  background-clip: text;
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 .ppc-cat {
@@ -2175,6 +2175,7 @@ textarea {
 /* ══ PAY SECTION LABEL TOGGLE ═══════════════════════════ */
 .pay-section-label {
   cursor: pointer;
+
   user-select: none;
   display: flex;
   align-items: center;
