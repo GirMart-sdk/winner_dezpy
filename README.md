@@ -197,11 +197,7 @@ npm run clean     # Elimina la BD completamente
 
 ## 📖 Documentación
 
-- **[SETUP_COMPLETE_LOCAL.md](SETUP_COMPLETE_LOCAL.md)** - Guía de instalación detallada
 - **[API_AND_FEATURES.md](API_AND_FEATURES.md)** - Endpoints y características
-- **[PAYMENT_SYSTEM.md](PAYMENT_SYSTEM.md)** - Sistema de pagos
-
----
 
 ## ✅ Checklist de Funcionamiento
 
