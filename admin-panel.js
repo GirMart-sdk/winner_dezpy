@@ -60,7 +60,7 @@ const LS = {
   set: (k, v) => {
     try {
       localStorage.setItem("w_" + k, JSON.stringify(v));
-    } catch {}
+    } catch { }
   },
 };
 
@@ -73,18 +73,32 @@ let payLog = LS.get("payLog", []);
 let payMethods = null; // initialized after function definitions
 
 if (typeof API_URL === "undefined") {
-  const origin = window.location.origin.startsWith("file:")
+  const origin =
+    typeof window !== "undefined" && window.location && window.location.origin
+      ? window.location.origin
+      : "http://localhost:3000";
+
+  const apiOrigin = origin.startsWith("file:")
     ? "http://localhost:3000"
-    : window.location.origin;
-  window.API_URL = `${origin.replace(/\/$/, "")}/api`;
+    : origin;
+
+  if (typeof window !== "undefined") {
+    window.API_URL = `${apiOrigin.replace(/\/$/, "")}/api`;
+  }
 }
 const API_KEY =
-  window.API_KEY ||
-  localStorage.getItem("w_api_key") ||
+  (typeof window !== "undefined" && window.API_KEY
+    ? window.API_KEY
+    : undefined) ||
+  (typeof localStorage !== "undefined"
+    ? localStorage.getItem("w_api_key")
+    : undefined) ||
   "prod-api-key-winner-2026";
 const apiFetch = (url, options = {}) => {
   const headers = { ...(options.headers || {}), "x-api-key": API_KEY };
-  // Ya no necesitamos token JWT - usamos API_KEY
+  if (AUTH_TOKEN) {
+    headers["Authorization"] = `Bearer ${AUTH_TOKEN}`;
+  }
   return fetch(url, { ...options, headers });
 };
 async function fetchInventory() {
@@ -115,6 +129,8 @@ async function fetchInventory() {
     console.log("📊 Productos totales:", inventory.length);
     renderInventory();
     renderPOSProducts();
+    updateInventoryInsightBadge(); // Conectar con Smart Insights
+    renderSmartInsights();         // Actualizar dashboard si aplica
   } catch (e) {
     console.error("❌ Error cargando inventario:", e.message);
     inventory = [];
@@ -141,7 +157,8 @@ async function fetchSalesLog() {
     })); // [FUTURO] Restaurar lógica canal online externo
     renderSalesStats();
     renderSalesTable();
-    renderDashboard();
+    updateInventoryInsightBadge(); // Ventas afectan rotación -> Smart Insights
+    renderSmartInsights();
   } catch (e) {
     console.error("Error fetching sales:", e);
   }
@@ -244,6 +261,206 @@ function defaultInventory() {
       sku: "WIN-008",
       img: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=300&q=75",
       stock: { U: 30 },
+    },
+    {
+      id: 9,
+      name: "Chaqueta Cuero Rider",
+      cat: "hombre",
+      price: 249990,
+      cost: 120000,
+      sku: "WIN-009",
+      img: "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=300&q=75",
+      stock: { S: 4, M: 6, L: 4, XL: 2 },
+    },
+    {
+      id: 10,
+      name: "Vestido Gala Night",
+      cat: "mujer",
+      price: 199990,
+      cost: 85000,
+      sku: "WIN-010",
+      img: "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=300&q=75",
+      stock: { XS: 2, S: 4, M: 4, L: 2 },
+    },
+    {
+      id: 11,
+      name: "Sneakers Futuristas",
+      cat: "calzado",
+      price: 159990,
+      cost: 70000,
+      sku: "WIN-011",
+      img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&q=75",
+      stock: { 36: 5, 37: 8, 38: 12, 39: 10, 40: 6, 41: 4 },
+    },
+    {
+      id: 12,
+      name: "Gafas de Sol Retro",
+      cat: "accesorios",
+      price: 54990,
+      cost: 20000,
+      sku: "WIN-012",
+      img: "https://images.unsplash.com/photo-1511499767390-a73359580ca4?w=300&q=75",
+      stock: { U: 40 },
+    },
+    {
+      id: 13,
+      name: "Pantalón Wide Leg",
+      cat: "mujer",
+      price: 129990,
+      cost: 55000,
+      sku: "WIN-013",
+      img: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=300&q=75",
+      stock: { XS: 4, S: 10, M: 12, L: 6 },
+    },
+    {
+      id: 14,
+      name: "Camisa Lino Oversize",
+      cat: "hombre",
+      price: 89990,
+      cost: 38000,
+      sku: "WIN-014",
+      img: "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=300&q=75",
+      stock: { S: 6, M: 12, L: 8, XL: 4 },
+    },
+    {
+      id: 15,
+      name: "Falda Plisada Midi",
+      cat: "mujer",
+      price: 79990,
+      cost: 32000,
+      sku: "WIN-015",
+      img: "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=300&q=75",
+      stock: { XS: 3, S: 8, M: 10, L: 5 },
+    },
+    {
+      id: 16,
+      name: "Hoodie Minimalista",
+      cat: "hombre",
+      price: 109990,
+      cost: 45000,
+      sku: "WIN-016",
+      img: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=300&q=75",
+      stock: { S: 8, M: 15, L: 10, XL: 5 },
+    },
+    {
+      id: 17,
+      name: "Botas Cuero Urban",
+      cat: "calzado",
+      price: 219990,
+      cost: 95000,
+      sku: "WIN-017",
+      img: "https://images.unsplash.com/photo-1520639889313-7272a74b1c73?w=300&q=75",
+      stock: { 38: 4, 39: 6, 40: 10, 41: 8, 42: 5 },
+    },
+    {
+      id: 18,
+      name: "Bolso Mano Chic",
+      cat: "accesorios",
+      price: 149990,
+      cost: 60000,
+      sku: "WIN-018",
+      img: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=300&q=75",
+      stock: { U: 15 },
+    },
+    {
+      id: 19,
+      name: "Reloj Tech Digital",
+      cat: "accesorios",
+      price: 189990,
+      cost: 80000,
+      sku: "WIN-019",
+      img: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&q=75",
+      stock: { U: 25 },
+    },
+    {
+      id: 20,
+      name: "Cinturón Piel Slim",
+      cat: "accesorios",
+      price: 49990,
+      cost: 18000,
+      sku: "WIN-020",
+      img: "https://images.unsplash.com/photo-1624222247344-550fbad04543?w=300&q=75",
+      stock: { U: 30 },
+    },
+    {
+      id: 21,
+      name: "Abrigo Lana Largo",
+      cat: "mujer",
+      price: 289990,
+      cost: 130000,
+      sku: "WIN-021",
+      img: "https://images.unsplash.com/photo-1539533377285-33dfdf39ef6e?w=300&q=75",
+      stock: { S: 3, M: 5, L: 4, XL: 2 },
+    },
+    {
+      id: 22,
+      name: "Top Corto Ribbed",
+      cat: "mujer",
+      price: 34990,
+      cost: 12000,
+      sku: "WIN-022",
+      img: "https://images.unsplash.com/photo-1554568218-0f1715e72254?w=300&q=75",
+      stock: { XS: 8, S: 15, M: 20, L: 10 },
+    },
+    {
+      id: 23,
+      name: "Bermudas Cargo",
+      cat: "hombre",
+      price: 74990,
+      cost: 30000,
+      sku: "WIN-023",
+      img: "https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=300&q=75",
+      stock: { S: 5, M: 10, L: 8, XL: 4 },
+    },
+    {
+      id: 24,
+      name: "Sandalias Slide",
+      cat: "calzado",
+      price: 45990,
+      cost: 15000,
+      sku: "WIN-024",
+      img: "https://images.unsplash.com/photo-1603487742131-4160ec999306?w=300&q=75",
+      stock: { 36: 10, 37: 15, 38: 15, 39: 10 },
+    },
+    {
+      id: 25,
+      name: "Gorra Snapback",
+      cat: "accesorios",
+      price: 49990,
+      cost: 18000,
+      sku: "WIN-025",
+      img: "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=300&q=75",
+      stock: { U: 60 },
+    },
+    {
+      id: 26,
+      name: "Pack Medias Diseño",
+      cat: "accesorios",
+      price: 24990,
+      cost: 8000,
+      sku: "WIN-026",
+      img: "https://images.unsplash.com/photo-1582966239102-15994e77aa51?w=300&q=75",
+      stock: { U: 100 },
+    },
+    {
+      id: 27,
+      name: "Blazer Slim Fit",
+      cat: "hombre",
+      price: 189990,
+      cost: 75000,
+      sku: "WIN-027",
+      img: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=300&q=75",
+      stock: { S: 4, M: 8, L: 6, XL: 2 },
+    },
+    {
+      id: 28,
+      name: "Tenis Running Pro",
+      cat: "calzado",
+      price: 179990,
+      cost: 80000,
+      sku: "WIN-028",
+      img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&q=75",
+      stock: { 38: 5, 39: 10, 40: 15, 41: 12, 42: 8, 43: 5 },
     },
   ];
 }
@@ -407,7 +624,7 @@ function fmtDate(iso) {
 
 function stockStatus(t) {
   if (t === 0) return { label: "Sin stock", cls: "badge-out", tbcls: "s-out" };
-  if (t <= 5) return { label: "Stock bajo", cls: "badge-low", tbcls: "s-low" };
+  if (t <= 100) return { label: "Stock bajo", cls: "badge-low", tbcls: "s-low" };
   return { label: "Disponible", cls: "badge-ok", tbcls: "s-ok" };
 }
 
@@ -443,8 +660,10 @@ function updateClock() {
       second: "2-digit",
     });
 }
-setInterval(updateClock, 1000);
-updateClock();
+if (typeof document !== "undefined") {
+  setInterval(updateClock, 1000);
+  updateClock();
+}
 
 /* ══════════════════════════════════════════════════════════
    AUTH / LOGIN
@@ -455,7 +674,7 @@ function verifySession() {
 }
 
 function doLogin() {
-  const u = $("loginUser").value.trim() || "Administrador";
+  const u = $("loginUser").value.trim() || "admin";
   const p = $("loginPass").value;
 
   // Si no ingresa contraseña, usar API_KEY directo
@@ -489,6 +708,7 @@ function doLogin() {
         user: data.user,
         role: data.role || "Administrador",
         avatar: (data.user || "")[0]?.toUpperCase() || "A",
+        token: data.token
       };
       LS.set("session", session);
       showApp();
@@ -533,22 +753,23 @@ function showApp() {
 }
 
 // Check session on load
-window.addEventListener("DOMContentLoaded", () => {
-  if (verifySession()) {
-    showApp();
-  } else {
-    // Auto-login sin credenciales usando solo API_KEY
-    session = { user: "Administrador", role: "Admin", avatar: "A" };
-    LS.set("session", session);
-    showApp();
-  }
-  // Enter key on login
-  ["loginUser", "loginPass"].forEach((id) => {
-    $(id).addEventListener("keydown", (e) => {
-      if (e.key === "Enter") doLogin();
+if (typeof window !== "undefined")
+  window.addEventListener("DOMContentLoaded", () => {
+    if (verifySession()) {
+      showApp();
+    } else {
+      // Auto-login sin credenciales usando solo API_KEY
+      session = { user: "Administrador", role: "Admin", avatar: "A" };
+      LS.set("session", session);
+      showApp();
+    }
+    // Enter key on login
+    ["loginUser", "loginPass"].forEach((id) => {
+      $(id).addEventListener("keydown", (e) => {
+        if (e.key === "Enter") doLogin();
+      });
     });
   });
-});
 
 /* ══════════════════════════════════════════════════════════
    NAVIGATION
@@ -566,6 +787,8 @@ const PAGE_TITLES = {
 };
 
 function navigateTo(page) {
+  // guard for non-browser environments
+  if (typeof document === "undefined") return;
   document
     .querySelectorAll(".page")
     .forEach((p) => p.classList.remove("active"));
@@ -581,28 +804,32 @@ function navigateTo(page) {
   $("sidebar").classList.remove("mobile-open");
 
   // Load page-specific data
-    if (page === "dashboard") {
+  if (page === "dashboard") {
     renderDashboard();
     loadAnalyticsData();
     // enableRealTimeSales(30000); // [DESACTIVADO] No ventas online
   }
-    renderInventory();
-    loadLowStockAlerts();
-  } else if (page === "payments") {
+
+  // Ejecutar siempre inventario / alertas de stock (típico en este panel)
+  renderInventory();
+  loadLowStockAlerts();
+
+  if (page === "payments") {
     renderPayMethods();
     renderPaymentsTable();
   } else if (page === "vip") {
     loadVIPCustomersData();
   } else if (page === "reorder") {
     loadReorderData();
-  } else if (page === "forecast") {
-    loadForecastData();
+    if (page === "forecast") {
+      loadForecastData();
+    }
   }
-}
 
-document.querySelectorAll(".snav-item").forEach((btn) => {
-  btn.addEventListener("click", () => navigateTo(btn.dataset.page));
-});
+  document.querySelectorAll(".snav-item").forEach((btn) => {
+    btn.addEventListener("click", () => navigateTo(btn.dataset.page));
+  });
+}
 
 function toggleSidebar() {
   $("sidebar").classList.toggle("mobile-open");
@@ -624,66 +851,159 @@ function refreshAll() {
    DASHBOARD
 ══════════════════════════════════════════════════════════ */
 function renderDashboard() {
-  const today = todayStr();
-  const todaySales = salesLog.filter((s) => s.timestamp.startsWith(today));
-  const todayTotal = todaySales.reduce((s, x) => s + x.total, 0);
-  const totalAll = salesLog.reduce((s, x) => s + x.total, 0);
-  const lowStock =
-    inventory.filter((p) => {
-      const t = totalStock(p);
-      return t > 0 && t <= 5;
-    }).length + inventory.filter((p) => totalStock(p) === 0).length;
+  const totalRevenue = salesLog.reduce((s, x) => s + x.total, 0);
+  const totalOrders = salesLog.length;
+  const avgTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-  $("kpiVentasHoy").textContent = fmt(todayTotal);
-  $("kpiProducts").textContent = inventory.length;
-  $("kpiLowStock").textContent = lowStock;
-  $("kpiTotalSales").textContent = fmt(totalAll);
+  $("kpiTotalRevenue").textContent = fmt(totalRevenue);
+  $("kpiOrders").textContent = totalOrders;
+  $("kpiAvgTicket").textContent = fmt(avgTicket);
+
+  // Resumen Total
+  $("stVolTotal").textContent = fmt(totalRevenue);
+  $("stTransTotal").textContent = totalOrders;
 
   // Recent sales
   const rl = $("dashRecentSales");
   if (!salesLog.length) {
-    rl.innerHTML =
-      '<p style="color:var(--gray-text);font-size:13px;text-align:center;padding:20px">Sin ventas aún</p>';
+    rl.innerHTML = '<p style="color:var(--gray-text);font-size:13px;text-align:center;padding:20px">Sin ventas aún</p>';
   } else {
     rl.innerHTML = salesLog
       .slice(0, 5)
-      .map(
-        (s) => `
+      .map(s => `
       <div class="recent-item">
         <div>
-          <div>${s.items
-            .map((i) => i.name)
-            .join(", ")
-            .slice(0, 40)}…</div>
+          <div>${s.items.map(i => i.name).join(", ").slice(0, 40)}…</div>
           <div class="recent-meta">${fmtDate(s.timestamp)} · Tienda Física</div>
         </div>
         <div class="recent-amount">${fmt(s.total)}</div>
-      </div>`,
-      )
-      .join("");
+      </div>`).join("");
   }
 
-  // Critical stock
-  const cl = $("dashCriticalStock");
-  const critical = inventory.filter((p) => totalStock(p) <= 5).slice(0, 5);
-  if (!critical.length) {
-    cl.innerHTML =
-      '<p style="color:var(--green);font-size:13px;text-align:center;padding:20px">✓ Todo el stock está bien</p>';
-  } else {
-    cl.innerHTML = critical
-      .map(
-        (p) => `
-      <div class="critical-item">
-        <img src="${p.img}" style="width:36px;height:44px;object-fit:cover;background:var(--gray2)" onerror="this.style.display='none'"/>
-        <div style="flex:1"><div>${p.name}</div><div style="font-size:11px;color:var(--gray-text)">${p.sku}</div></div>
-        <div class="crit-stock">${totalStock(p)}</div>
-      </div>`,
-      )
-      .join("");
+  renderPayDistCards();
+  renderSmartInsights();
+  // Los gráficos se cargan vía loadAnalyticsData() que llama a los renders específicos
+}
+
+function renderPayDistCards() {
+  const container = $("payDistributionContainer");
+  if (!container) return;
+
+  const totalRevenue = salesLog.reduce((s, x) => s + x.total, 0);
+  const methodStats = {};
+
+  salesLog.forEach(s => {
+    if (!methodStats[s.method]) {
+      methodStats[s.method] = { count: 0, total: 0 };
+    }
+    methodStats[s.method].count++;
+    methodStats[s.method].total += s.total;
+  });
+
+  const methods = Object.keys(methodStats);
+  if (!methods.length) {
+    container.innerHTML = '<p style="color:var(--gray-text);grid-column:1/-1;text-align:center">No hay datos de transacciones</p>';
+    return;
   }
 
-  // Chart: sales by payment method
-  renderPayChart();
+  const iconMap = {
+    'efectivo': '💵',
+    'nequi': '📱',
+    'daviplata': '📱',
+    'tarjeta': '💳',
+    'pse': '🏦',
+    'visa': '💳',
+    'mastercard': '💳',
+    'paypal': '🌎',
+    'stripe': '🌎'
+  };
+
+  container.innerHTML = methods.map(m => {
+    const stats = methodStats[m];
+    const percent = totalRevenue > 0 ? (stats.total / totalRevenue) * 100 : 0;
+    const icon = iconMap[m.toLowerCase()] || '💰';
+
+    return `
+      <div class="pay-dist-card">
+        <div class="pdc-header">
+          <div class="pdc-icon">${icon}</div>
+          <div>
+            <div class="pdc-name">${m}</div>
+            <div class="pdc-meta">${stats.count} transacciones</div>
+          </div>
+        </div>
+        <div class="pdc-progress-wrap">
+          <div class="pdc-bar-bg">
+            <div class="pdc-bar-fill" style="width: ${percent}%"></div>
+          </div>
+        </div>
+        <div class="pdc-footer">
+          <div class="pdc-amount">${fmt(stats.total)}</div>
+          <div class="pdc-percent">${percent.toFixed(1)}%</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderSmartInsights() {
+  const container = $("smartInsightsList");
+  if (!container) return;
+
+  const insights = [];
+
+  // 1. Exceso de Stock (> 60 unidades totales)
+  const overstocked = inventory.filter(p => totalStock(p) > 60).slice(0, 2);
+  overstocked.forEach(p => {
+    insights.push({
+      type: 'orange',
+      icon: '📦',
+      title: 'Exceso de Stock',
+      desc: `${p.name} tiene ${totalStock(p)} uds. Sugerencia: 20% OFF para rotar inventario.`,
+      tag: 'Liquidación'
+    });
+  });
+
+  // 2. Baja Rotación (No aparece en salesLog reciente)
+  const soldNames = new Set(salesLog.flatMap(s => s.items.map(i => i.name)));
+  const slowMovers = inventory.filter(p => !soldNames.has(p.name)).slice(0, 2);
+  slowMovers.forEach(p => {
+    insights.push({
+      type: 'blue',
+      icon: '📉',
+      title: 'Baja Rotación',
+      desc: `${p.name} no registra ventas recientes. Impulsar con oferta Black Friday.`,
+      tag: 'Impulsar'
+    });
+  });
+
+  // 3. Alta Rentabilidad (Precio > 2.8 * Costo)
+  const highMargin = inventory.filter(p => p.price > (p.cost * 2.8)).slice(0, 1);
+  highMargin.forEach(p => {
+    insights.push({
+      type: 'green',
+      icon: '💰',
+      title: 'Margen Alto',
+      desc: `${p.name} permite un descuento del 40% manteniendo rentabilidad.`,
+      tag: 'Rentable'
+    });
+  });
+
+  if (insights.length === 0) {
+    container.innerHTML = '<p style="color:var(--gray-text);font-size:11px;text-align:center;padding:20px">Analizando datos para generar sugerencias...</p>';
+    return;
+  }
+
+  container.innerHTML = insights.map(i => `
+    <div class="insight-item" onclick="navigateTo('inventory'); setTimeout(() => { _insightFilterActive = true; renderInventory(); }, 100);" style="cursor:pointer">
+      <div class="insight-icon ${i.type}">${i.icon}</div>
+      <div class="insight-info">
+        <div class="insight-title">${i.title}</div>
+        <div class="insight-desc">${i.desc}</div>
+      </div>
+      <div class="insight-tag ${i.type}">${i.tag}</div>
+    </div>
+  `).join("");
 }
 
 let payChartInstance = null;
@@ -699,14 +1019,14 @@ function renderPayChart() {
   const labels = Object.keys(methodTotals);
   const data = Object.values(methodTotals);
   const colors = [
-    "#e8ff47",
-    "#2ed573",
-    "#1e90ff",
-    "#ffa502",
-    "#ff4757",
-    "#9f7aea",
-    "#ff6b81",
-    "#eccc68",
+    "#ffffff", // accent
+    "#34c759", // green
+    "#007aff", // blue
+    "#ff9500", // orange
+    "#ff3b30", // red
+    "#af52de", // purple
+    "#5856d6", // indigo
+    "#ffcc00", // yellow
   ];
 
   if (payChartInstance) {
@@ -747,7 +1067,11 @@ function renderPayChart() {
         },
         y: {
           grid: { color: "rgba(255,255,255,0.04)" },
-          ticks: { color: "#666", font: { size: 11 }, callback: (v) => fmt(v) },
+          ticks: {
+            color: "#666",
+            font: { size: 11 },
+            callback: (v) => fmt(v),
+          },
         },
       },
     },
@@ -755,20 +1079,122 @@ function renderPayChart() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   INVENTORY
+ INVENTORY
 ══════════════════════════════════════════════════════════ */
+let _insightFilterActive = false;
+function filterByInsights() {
+  _insightFilterActive = !_insightFilterActive;
+  const btn = document.querySelector('button[onclick="filterByInsights()"]');
+  if (btn) {
+    btn.style.background = _insightFilterActive ? "gold" : "rgba(255, 215, 0, 0.1)";
+    btn.style.color = _insightFilterActive ? "#000" : "gold";
+  }
+  renderInventory();
+}
+
+async function applyAllInsights() {
+  // Primero filtramos la vista para que el usuario vea qué se va a cambiar
+  _insightFilterActive = true;
+  renderInventory();
+
+  const targets = inventory.filter(p => {
+    const tStock = totalStock(p);
+    const hasSales = salesLog.some(s => s.items.some(it => String(it.id) === String(p.id)));
+    const highMargin = p.cost > 0 && (p.price > p.cost * 2.8);
+    return (tStock > 60 || !hasSales || highMargin) && !p.on_sale;
+  });
+
+  if (targets.length === 0) {
+    toast("✨ No hay nuevas sugerencias para aplicar ahora");
+    _insightFilterActive = false;
+    renderInventory();
+    return;
+  }
+
+  // Pequeña pausa para que el ojo humano vea el filtro
+  await new Promise(r => setTimeout(r, 300));
+
+  if (!confirm(`⚡ Smart Insights detectó ${targets.length} productos con rotación lenta o margen alto. ¿Aplicar ofertas automáticas ahora?`)) {
+    // Si cancela, dejamos el filtro puesto por si quiere editar manualmente
+    toast("💡 Filtro activado. Puedes editar cada producto manualmente.");
+    return;
+  }
+
+  toast(`⏳ Procesando ${targets.length} productos...`);
+
+  let updatedCount = 0;
+  for (const p of targets) {
+    const tStock = totalStock(p);
+    const hasSales = salesLog.some(s => s.items.some(it => String(it.id) === String(p.id)));
+
+    let recPrice = p.price;
+    if (tStock > 60) recPrice = Math.round(p.price * 0.8);
+    else if (!hasSales) recPrice = Math.round(p.price * 0.7);
+    else if (p.price > p.cost * 2.8) recPrice = Math.round(p.price * 0.6);
+
+    const updatedProduct = {
+      ...p,
+      category: p.cat,
+      image: p.img,
+      promo_price: recPrice,
+      on_sale: true
+    };
+
+    try {
+      await apiFetch(`${API_URL}/products`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedProduct),
+      });
+      updatedCount++;
+    } catch (e) {
+      console.error(`Error actualizando ${p.name}:`, e);
+    }
+  }
+
+  _insightFilterActive = false;
+  fetchInventory();
+  toast(`✓ ¡Éxito! ${updatedCount} productos actualizados con precios inteligentes`);
+}
+
+function updateInventoryInsightBadge() {
+  let count = 0;
+  inventory.forEach(p => {
+    const tStock = totalStock(p);
+    const hasSales = salesLog.some(s => s.items.some(it => String(it.id) === String(p.id)));
+    const highMargin = p.cost > 0 && (p.price > p.cost * 2.8);
+    if ((tStock > 60 || !hasSales || highMargin) && !p.on_sale) {
+      count++;
+    }
+  });
+  const el = $("inventoryInsightBadge");
+  if (el) {
+    el.textContent = count;
+    el.style.display = count > 0 ? "inline-block" : "none";
+  }
+}
+
 function renderInventory() {
   const search = ($("invSearch") || { value: "" }).value.toLowerCase();
   const cat = ($("invCatFilter") || { value: "" }).value;
 
-  const filtered = inventory.filter((p) => {
+  let filtered = inventory.filter((p) => {
     return p.name.toLowerCase().includes(search) && (!cat || p.cat === cat);
   });
+
+  if (_insightFilterActive) {
+    filtered = filtered.filter(p => {
+      const tStock = totalStock(p);
+      const hasSales = salesLog.some(s => s.items.some(it => String(it.id) === String(p.id)));
+      const highMargin = p.cost > 0 && (p.price > p.cost * 2.8);
+      return (tStock > 60 || !hasSales || highMargin) && !p.on_sale;
+    });
+  }
 
   // Stats
   const low = inventory.filter((p) => {
     const t = totalStock(p);
-    return t > 0 && t <= 5;
+    return t > 0 && t <= 100;
   }).length;
   const out = inventory.filter((p) => totalStock(p) === 0).length;
   const val = inventory.reduce((s, p) => s + p.price * totalStock(p), 0);
@@ -776,6 +1202,8 @@ function renderInventory() {
   $("is2").textContent = low;
   $("is3").textContent = out;
   $("is4").textContent = fmt(val);
+
+  updateInventoryInsightBadge();
 
   const container = $("invCards");
   if (!filtered.length) {
@@ -792,13 +1220,19 @@ function renderInventory() {
       const sizesBadges =
         sizes.length > 0
           ? sizes
-              .map((s) => {
-                const qty = p.stock[s] || 0;
-                const cls = qty === 0 ? "out" : qty <= 3 ? "low" : "ok";
-                return `<span class="inv-size-badge ${cls}">${s}:${qty}</span>`;
-              })
-              .join("")
+            .map((s) => {
+              const qty = p.stock[s] || 0;
+              const cls = qty === 0 ? "out" : qty <= 3 ? "low" : "ok";
+              return `<span class="inv-size-badge ${cls}">${s}:${qty}</span>`;
+            })
+            .join("")
           : '<span style="color:var(--gray-text);font-size:12px">Sin talla</span>';
+
+      const isOnSale = p.on_sale && p.promo_price > 0;
+      const displayPrice = isOnSale
+        ? `<span class="price-original">${fmt(p.price)}</span><span class="price-promo">${fmt(p.promo_price)}</span>`
+        : fmt(p.price);
+      const promoBadge = isOnSale ? `<span class="promo-badge">SALE %</span>` : "";
 
       return `
       <div class="inv-card" data-product-id="${p.id}">
@@ -806,10 +1240,10 @@ function renderInventory() {
         <img src="${p.img}" alt="${p.name}" class="inv-card-img"
           onerror="this.src='https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=300&q=75'"/>
         <div class="inv-card-body">
-          <div class="inv-card-cat">${p.cat}</div>
+          <div class="inv-card-cat">${p.cat} ${promoBadge}</div>
           <div class="inv-card-name">${p.name}</div>
           <div class="inv-card-sku">${p.sku}</div>
-          <div class="inv-card-price">${fmt(p.price)}</div>
+          <div class="inv-card-price">${displayPrice}</div>
           <div class="inv-sizes">${sizesBadges}</div>
           <div class="inv-card-footer">
             <button class="btn-ghost btn-inv-qr" data-product-id="${p.id}">🔲 QR</button>
@@ -867,13 +1301,33 @@ async function deleteProduct(id) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   PRODUCT MODAL
+ PRODUCT MODAL
 ══════════════════════════════════════════════════════════ */
+function applyRecommendedPrice() {
+  const id = $("editProductId").value;
+  const p = inventory.find(x => String(x.id) === String(id));
+  if (!p) return;
+
+  const tStock = totalStock(p);
+  const hasSales = salesLog.some(s => s.items.some(it => String(it.id) === String(p.id)));
+
+  let recPrice = p.price;
+  if (tStock > 60) recPrice = Math.round(p.price * 0.8);
+  else if (!hasSales) recPrice = Math.round(p.price * 0.7);
+  else if (p.price > p.cost * 2.8) recPrice = Math.round(p.price * 0.6);
+
+  $("pPromoPrice").value = recPrice;
+  $("pOnSale").checked = true;
+  toast(`✓ Precio sugerido: ${fmt(recPrice)} aplicado`);
+}
+
 function openProductModal(id = null) {
   $("editProductId").value = id || "";
   $("productModalTitle").textContent = id
     ? "Editar Producto"
     : "Nuevo Producto";
+
+  const promoSection = document.querySelector('.promo-section');
 
   if (id) {
     const p = inventory.find((x) => String(x.id) === String(id));
@@ -884,19 +1338,72 @@ function openProductModal(id = null) {
     $("pCost").value = p.cost || "";
     $("pSku").value = p.sku || "";
     $("pImg").value = p.img || "";
+    $("pPromoPrice").value = p.promo_price || "";
+    $("pOnSale").checked = !!p.on_sale;
 
-    // Renderizar grid según categoría
+    // Lógica alineada con SMART INSIGHTS
+    const tStock = totalStock(p);
+    const hasSales = salesLog.some(s => s.items.some(it => String(it.id) === String(p.id)));
+    const highMargin = p.cost > 0 && (p.price > p.cost * 2.8);
+
+    const isOverstocked = tStock > 60;
+    const isSlowMover = !hasSales;
+
+    // Decidir si mostrar sección de oferta
+    if (isOverstocked || isSlowMover || highMargin || p.on_sale) {
+      if (promoSection) {
+        promoSection.style.display = "flex";
+        const noteId = 'promo-note';
+        let note = $(noteId);
+        if (!note) {
+          note = document.createElement('div');
+          note.id = noteId;
+          note.style = "font-size:10px; color:var(--accent); margin-bottom:10px; font-weight:600; text-transform:uppercase; letter-spacing:1px; display:flex; align-items:center; gap:5px;";
+          promoSection.parentNode.insertBefore(note, promoSection);
+        }
+
+        let reason = "🔥 Oferta Activa";
+        if (isOverstocked) reason = "📦 Smart Insight: Sugerencia de Liquidación (Exceso de Stock)";
+        else if (isSlowMover) reason = "📉 Smart Insight: Sugerencia de Impulso (Baja Rotación)";
+        else if (highMargin) reason = "💰 Smart Insight: Oferta Rentable (Margen Alto)";
+
+        note.innerHTML = `<span>💡</span> ${reason} <button onclick="applyRecommendedPrice()" class="btn-ghost" style="font-size:9px; padding:2px 5px; margin-left:10px; border-color:var(--accent); color:var(--accent)">Aplicar Sugerencia</button>`;
+      }
+    } else {
+      if (promoSection) promoSection.style.display = "none";
+      const note = $('promo-note');
+      if (note) note.remove();
+    }
+
+    // Tab Rendimiento
+    let unitsSold = 0;
+    let revenue = 0;
+    salesLog.forEach(s => {
+      s.items.forEach(it => {
+        if (String(it.id) === String(p.id)) {
+          unitsSold += it.qty;
+          revenue += (it.price * it.qty);
+        }
+      });
+    });
+    $("perfUnits").textContent = unitsSold;
+    $("perfRevenue").textContent = fmt(revenue);
+
     renderStockGrid(p.cat, p.stock);
     updateStockTotal();
-    // Show QR
     setTimeout(() => renderQRPreview(p), 100);
   } else {
+    if (promoSection) promoSection.style.display = "flex";
+    const note = $('promo-note');
+    if (note) note.remove();
+
     ["pName", "pPrice", "pCost", "pSku", "pImg"].forEach(
       (f) => ($(f).value = ""),
     );
+    $("pOnSale").checked = false;
+    $("pPromoPrice").value = "";
     $("pCat").value = "mujer";
 
-    // Renderizar grid para mujer por defecto
     renderStockGrid("mujer", {});
     $("qrPreviewBox").innerHTML =
       '<div style="color:var(--gray-text);font-size:13px">Guarda el producto para generar el QR</div>';
@@ -999,6 +1506,8 @@ async function saveProduct() {
   const sku = $("pSku").value.trim();
   const img = $("pImg").value.trim();
   const cat = $("pCat").value;
+  const promo_price = parseFloat($("pPromoPrice").value) || 0;
+  const on_sale = $("pOnSale").checked;
 
   // Validaciones
   if (!name || name.length === 0) {
@@ -1032,6 +1541,8 @@ async function saveProduct() {
     image: img,
     category: cat,
     stock,
+    promo_price,
+    on_sale,
   };
 
   try {
@@ -1079,7 +1590,7 @@ async function saveProduct() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   CARGA DE IMÁGENES — Image Upload
+ CARGA DE IMÁGENES — Image Upload
 ══════════════════════════════════════════════════════════ */
 function triggerImageUpload() {
   $("pImgFile").click();
@@ -1119,7 +1630,7 @@ function handleImageUpload(event) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   ESCÁNER QR PARA PRODUCTOS — Product QR Scanner
+ ESCÁNER QR PARA PRODUCTOS — Product QR Scanner
 ══════════════════════════════════════════════════════════ */
 let productScannerActive = false;
 
@@ -1276,7 +1787,7 @@ function autoFillFromQRData(data) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   QR CODE GENERATION
+ QR CODE GENERATION
 ══════════════════════════════════════════════════════════ */
 function buildQRPayload(product) {
   return JSON.stringify({
@@ -1306,7 +1817,16 @@ function renderQRPreview(product) {
     const label = document.createElement("div");
     label.style.cssText =
       "text-align:center;margin-top:10px;font-size:12px;font-weight:700;color:var(--white);letter-spacing:1px";
-    label.textContent = `${product.sku} · ${product.name}`;
+
+    if (product.on_sale && product.promo_price > 0) {
+      const banner = document.createElement("div");
+      banner.className = "qr-promo-banner";
+      banner.textContent = "¡OFERTA!";
+      box.prepend(banner);
+      label.innerHTML = `${product.sku}<br><span style="text-decoration:line-through; font-size:10px; color:var(--gray-text)">${fmt(product.price)}</span> <span style="color:#ff4757">${fmt(product.promo_price)}</span>`;
+    } else {
+      label.textContent = `${product.sku} · ${product.name}`;
+    }
     box.appendChild(label);
   } catch (e) {
     box.innerHTML =
@@ -1351,10 +1871,15 @@ function printSingleQR() {
   win.document
     .write(`<html><body style="text-align:center;padding:40px;font-family:sans-serif">
     <h2 style="font-size:24px;letter-spacing:4px">WINNER</h2>
+    ${qrCurrentProduct.on_sale ? `<div style="background:#ff4757; color:white; padding:5px; font-weight:800; border-radius:4px; margin-bottom:10px;">¡OFERTA!</div>` : ''}
     <div style="margin:20px auto;display:inline-block">${img.outerHTML}</div>
     <p style="font-size:14px;font-weight:700">${qrCurrentProduct.sku}</p>
     <p style="font-size:18px">${qrCurrentProduct.name}</p>
-    <p style="font-size:22px;font-weight:900">$${qrCurrentProduct.price.toLocaleString("es-CO")}</p>
+    ${qrCurrentProduct.on_sale ?
+        `<p style="font-size:14px; text-decoration:line-through; color:#999; margin:0">$${qrCurrentProduct.price.toLocaleString("es-CO")}</p>
+       <p style="font-size:26px; font-weight:900; color:#ff4757; margin:5px 0">$${qrCurrentProduct.promo_price.toLocaleString("es-CO")}</p>` :
+        `<p style="font-size:22px; font-weight:900">$${qrCurrentProduct.price.toLocaleString("es-CO")}</p>`
+      }
   </body></html>`);
   win.document.close();
   win.print();
@@ -1408,16 +1933,16 @@ function printAllQRs() {
     ${items}
     <script>
       ${inventory
-        .map(
-          (p) => `
+      .map(
+        (p) => `
         new QRCode(document.getElementById("qr_${p.id}"),{
           text:${JSON.stringify(buildQRPayload(p))},
           width:150,height:150,
           colorDark:"#000",colorLight:"#fff"
         });
       `,
-        )
-        .join("")}
+      )
+      .join("")}
       setTimeout(()=>window.print(),1200);
     <\/script></body></html>`);
   win.document.close();
@@ -1425,7 +1950,7 @@ function printAllQRs() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   QR SCANNER (page)
+ QR SCANNER (page)
 ══════════════════════════════════════════════════════════ */
 function setScanMode(mode) {
   scanMode = mode;
@@ -1523,7 +2048,7 @@ function processScannedProduct(product) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   POS
+ POS
 ══════════════════════════════════════════════════════════ */
 function renderPOSProducts(filter = "") {
   try {
@@ -1557,15 +2082,14 @@ function renderPOSProducts(filter = "") {
     list.innerHTML = items
       .map(
         (p) => `
-      <div class="pos-product-card" data-product-id="${p.id}" style="cursor:pointer;transition:all 0.2s">
-        <img src="${p.img}" alt="${p.name}" onerror="this.src='https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=200&q=60'"/>
-        <div class="pos-product-card-info">
-          <div class="ppc-cat">${p.cat}</div>
-          <div class="ppc-name">${p.name}</div>
-          <div class="ppc-price">${fmt(p.price)}</div>
-          <div style="font-size:12px;color:var(--accent);margin-top:4px">Stock: ${totalStock(p)}</div>
-        </div>
-      </div>`,
+          <div class="pos-product-card" data-product-id="${p.id}" style="cursor:pointer">
+            <img src="${p.img}" alt="${p.name}" onerror="this.src='https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=200&q=60'"/>
+            <div class="pos-product-card-info">
+              <div class="ppc-cat">${p.cat}</div>
+              <div class="ppc-name">${p.name}</div>
+              <div class="ppc-price">${fmt(p.price)}</div>
+            </div>
+          </div>`,
       )
       .join("");
 
@@ -1580,14 +2104,6 @@ function renderPOSProducts(filter = "") {
           openPOSSizeSelector(product);
         }
       });
-      card.addEventListener(
-        "mouseover",
-        () => (card.style.transform = "scale(1.02)"),
-      );
-      card.addEventListener(
-        "mouseout",
-        () => (card.style.transform = "scale(1)"),
-      );
     });
   } catch (e) {
     console.error("❌ Error en renderPOSProducts:", e);
@@ -1635,16 +2151,19 @@ function openPOSSizeSelector(product) {
     .join("");
 
   setTimeout(() => {
-    sizeGrid.querySelectorAll(".pos-size-btn:not(:disabled)").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const pId = btn.dataset.productId;
-        const sz = btn.dataset.size;
-        addToPOSCart(pId, sz);
-        closePOSSizeModal();
+    sizeGrid
+      .querySelectorAll(".pos-size-btn:not(:disabled)")
+      .forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const pId = btn.dataset.productId;
+          const sz = btn.dataset.size;
+          addToPOSCart(pId, sz);
+          closePOSSizeModal();
+        });
       });
-    });
   }, 0);
 
+  // Mostrar overlay/modal
   if (overlay) overlay.classList.add("open");
   modal.classList.add("open");
 }
@@ -1723,6 +2242,20 @@ function closePOSSizeModal() {
   if (overlay) overlay.classList.remove("open");
 }
 
+function openPOSCart() {
+  const panel = $("posRightPanel");
+  const overlay = $("posCartOverlay");
+  if (panel) panel.classList.add("open");
+  if (overlay) overlay.classList.add("open");
+}
+
+function closePOSCart() {
+  const panel = $("posRightPanel");
+  const overlay = $("posCartOverlay");
+  if (panel) panel.classList.remove("open");
+  if (overlay) overlay.classList.remove("open");
+}
+
 function addToPOSCart(productOrId, size = "M") {
   try {
     const p =
@@ -1779,7 +2312,7 @@ function addToPOSCart(productOrId, size = "M") {
       posCart.push({
         id: p.id,
         name: p.name,
-        price: p.price,
+        price: (p.on_sale && p.promo_price > 0) ? p.promo_price : p.price,
         img: p.img || "",
         size: size,
         qty: 1,
@@ -1787,6 +2320,7 @@ function addToPOSCart(productOrId, size = "M") {
     }
 
     renderPOSCart();
+    openPOSCart(); // Open drawer automatically
     const sizeText = size === "N/A" ? "" : ` (${size})`;
     toast(`✓ ${p.name}${sizeText} agregado al carrito`);
     console.log(`Producto agregado: ${p.name} - Talla: ${size}`);
@@ -1834,6 +2368,10 @@ function renderPOSCart() {
       console.warn("⚠️ Contenedor posItems no encontrado");
       return;
     }
+
+    const totalItems = posCart.reduce((s, i) => s + i.qty, 0);
+    const badge = $("posCartBadge");
+    if (badge) badge.textContent = totalItems;
 
     if (!posCart.length) {
       el.innerHTML = '<div class="pos-empty">Sin productos agregados</div>';
@@ -2103,7 +2641,7 @@ function printReceipt(sale) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   PAYMENT METHODS
+ PAYMENT METHODS
 ══════════════════════════════════════════════════════════ */
 function renderPayMethods() {
   renderPaySection("payNational", payMethods.national);
@@ -2118,20 +2656,22 @@ function renderPaySection(containerId, methods) {
   el.innerHTML = methods
     .map(
       (m) => `
-    <div class="pay-method-card ${m.enabled ? "enabled" : ""}">
-      <span class="pmc-icon">${m.icon}</span>
-      <div class="pmc-info">
-        <div class="pmc-name">${m.name}</div>
-        <div class="pmc-type">${m.type}</div>
+    <div class="pay-method-card ${m.enabled ? "enabled" : ""}" onclick="togglePayMethod('${containerId}','${m.id}')">
+      <div class="pmc-main">
+        <span class="pmc-icon">${m.icon}</span>
+        <div class="pmc-info">
+          <div class="pmc-name">${m.name}</div>
+          <div class="pmc-type">${m.type}</div>
+        </div>
       </div>
       <button class="toggle-switch ${m.enabled ? "on" : ""}"
-        onclick="togglePayMethod('${containerId}','${m.id}')"
         aria-label="${m.enabled ? "Desactivar" : "Activar"} ${m.name}">
       </button>
     </div>`,
     )
     .join("");
 }
+
 
 const PAY_SECTION_MAP = {
   payNational: "national",
@@ -2160,7 +2700,13 @@ function registerPayment() {
     toast("⚠ Completa método y monto");
     return;
   }
-  const entry = { id: genId(), ts: nowStr(), method, ref: ref || "—", amount };
+  const entry = {
+    id: genId(),
+    ts: nowStr(),
+    method,
+    ref: ref || "—",
+    amount,
+  };
   payLog.unshift(entry);
   LS.set("payLog", payLog);
   $("payRegMethod").value = "";
@@ -2170,29 +2716,75 @@ function registerPayment() {
   toast(`✓ Pago de ${fmt(amount)} registrado`);
 }
 
+let _payTimeRange = 'today';
+
+function setPayTimeFilter(range) {
+  _payTimeRange = range;
+  document.querySelectorAll('.ph-tab').forEach(btn => {
+    btn.classList.remove('active');
+    const label = btn.textContent.toLowerCase();
+    if (range === 'today' && label === 'hoy') btn.classList.add('active');
+    if (range === 'yesterday' && label === 'ayer') btn.classList.add('active');
+    if (range === 'week' && label === 'semana') btn.classList.add('active');
+    if (range === 'month' && label === 'mes') btn.classList.add('active');
+    if (range === 'all' && label === 'todo') btn.classList.add('active');
+  });
+  if (range !== 'custom') $("payFilterDate").value = '';
+  renderPaymentsTable();
+}
+
+function resetPayFilters() {
+  $("payFilterDate").value = '';
+  $("payFilterMethod").value = '';
+  setPayTimeFilter('today');
+}
+
 function renderPaymentsTable() {
   const tbody = $("paymentsBody");
+  if (!tbody) return;
   const dateFilter = $("payFilterDate")?.value || "";
   const methodFilter = $("payFilterMethod")?.value || "";
 
   if (!salesLog || !salesLog.length) {
-    tbody.innerHTML =
-      '<tr class="empty-row"><td colspan="7">Sin pagos registrados</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Sin pagos registrados</td></tr>';
+    $("phSummaryTotal").textContent = "$0";
+    $("phSummaryCount").textContent = "0";
     return;
   }
 
   let payList = [...salesLog];
 
-  // Filtrar por fecha
+  // Filtro por fecha (Manual o Rápido)
   if (dateFilter) {
     payList = payList.filter((s) => s.timestamp.startsWith(dateFilter));
+    _payTimeRange = 'custom';
+    document.querySelectorAll('.ph-tab').forEach(btn => btn.classList.remove('active'));
+  } else if (_payTimeRange !== 'all') {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    if (_payTimeRange === 'today') {
+      payList = payList.filter(s => s.timestamp.startsWith(todayStr));
+    } else if (_payTimeRange === 'yesterday') {
+      const yesterday = new Date();
+      yesterday.setDate(now.getDate() - 1);
+      const yestStr = yesterday.toISOString().split('T')[0];
+      payList = payList.filter(s => s.timestamp.startsWith(yestStr));
+    } else if (_payTimeRange === 'week') {
+      const weekAgo = new Date();
+      weekAgo.setDate(now.getDate() - 7);
+      payList = payList.filter(s => new Date(s.timestamp) >= weekAgo);
+    } else if (_payTimeRange === 'month') {
+      const monthAgo = new Date();
+      monthAgo.setMonth(now.getMonth() - 1);
+      payList = payList.filter(s => new Date(s.timestamp) >= monthAgo);
+    }
   }
 
   // Filtrar por método
   if (methodFilter) {
-    // Mapear métodos de los formularios al método en ventas
     const methodMap = {
-      tarjeta: ["card", "tarjeta", "tarjeta debito", "tarjeta credito"],
+      tarjeta: ["card", "tarjeta", "tarjeta debito", "tarjeta credito", "visa", "mastercard"],
       pse: ["pse", "pse/transferencia"],
       nequi: ["nequi"],
       daviplata: ["daviplata"],
@@ -2200,65 +2792,58 @@ function renderPaymentsTable() {
     };
     const filterMethods = methodMap[methodFilter] || [];
     payList = payList.filter((s) => {
-      const method = (s.method || "").toLowerCase();
-      const paymentMethod = (s.payment_method || "").toLowerCase();
-      return filterMethods.some(
-        (m) => method.includes(m) || paymentMethod.includes(m),
-      );
+      const method = (s.method || s.payment_method || "").toLowerCase();
+      return filterMethods.some(m => method.includes(m));
     });
   }
 
+  let totalAmount = 0;
   if (!payList.length) {
-    tbody.innerHTML =
-      '<tr class="empty-row"><td colspan="7">No hay pagos con los filtros seleccionados</td></tr>';
-    return;
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No hay pagos con los filtros seleccionados</td></tr>';
+  } else {
+    tbody.innerHTML = payList
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .map((p) => {
+        totalAmount += p.total;
+        const method = (p.method || p.payment_method || "N/A").toLowerCase();
+        const methodIcon = getPaymentIcon(method);
+
+        const statusClass =
+          p.payment_status === "completed" ? "s-ok" :
+            ["pending_verification", "waiting_confirmation"].includes(p.payment_status) ? "s-pending" : "s-fail";
+
+        return `
+          <tr>
+            <td>${new Date(p.timestamp).toLocaleString()}</td>
+            <td>${p.client_name || '---'}</td>
+            <td>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:16px;">${methodIcon}</span>
+                <span style="font-weight:600; font-size:13px; text-transform:capitalize;">${method}</span>
+              </div>
+            </td>
+            <td style="font-size:11px; color:var(--gray-text);">${p.ref || p.id.slice(0, 8)}</td>
+            <td style="font-weight:700; color:var(--accent);">${fmt(p.total)}</td>
+            <td><span class="status-badge ${statusClass}">${p.payment_status || 'COMPLETED'}</span></td>
+            <td><button class="btn-ghost-sm" onclick="viewSaleDetails('${p.id}')">👁</button></td>
+          </tr>
+        `;
+      }).join("");
   }
 
-  tbody.innerHTML = payList
-    .map((p) => {
-      const method = (p.method || p.payment_method || "N/A").toLowerCase();
-      const methodDisplay = getPaymentMethodDisplay(method);
-      const details = getPaymentDetails(p);
-      const statusClass =
-        p.payment_status === "completed"
-          ? "s-ok"
-          : p.payment_status === "pending_verification"
-            ? "s-pending"
-            : p.payment_status === "waiting_confirmation"
-              ? "s-pending"
-              : "s-warning";
-      const statusText =
-        p.payment_status === "completed"
-          ? "Completado"
-          : p.payment_status === "pending_verification"
-            ? "En verificación"
-            : p.payment_status === "waiting_confirmation"
-              ? "Por confirmar"
-              : p.payment_status || "Pendiente";
+  $("phSummaryTotal").textContent = fmt(totalAmount);
+  $("phSummaryCount").textContent = payList.length;
+}
 
-      return `
-      <tr>
-        <td style="font-size:12px">${fmtDate(p.timestamp)}</td>
-        <td>
-          <div style="font-size:13px;font-weight:600">${p.client || p.customer?.name || "Cliente Web"}</div>
-          <div style="font-size:11px;color:var(--gray-text)">${p.customer_email || p.customer?.email || "—"}</div>
-        </td>
-        <td>
-          <div style="font-size:12px">${methodDisplay.icon} ${methodDisplay.name}</div>
-          <div style="font-size:11px;color:var(--gray-text)">${methodDisplay.type}</div>
-        </td>
-        <td style="font-size:11px;font-family:monospace;color:var(--gray-text)">
-          ${details}
-        </td>
-        <td style="font-weight:700;color:var(--accent);text-align:right">${fmt(p.total)}</td>
-        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
-        <td style="text-align:center">
-          <button class="action-btn" onclick="viewPaymentDetails('${p.id}')" title="Ver detalles">👁</button>
-        </td>
-      </tr>
-    `;
-    })
-    .join("");
+function getPaymentIcon(method) {
+  const m = method.toLowerCase();
+  if (m.includes('nequi')) return '🟣';
+  if (m.includes('daviplata')) return '🔴';
+  if (m.includes('efectivo') || m.includes('cash')) return '💵';
+  if (m.includes('tarjeta') || m.includes('visa') || m.includes('mastercard')) return '💳';
+  if (m.includes('pse') || m.includes('transferencia')) return '🏦';
+  if (m.includes('paypal')) return '🅿️';
+  return '💰';
 }
 
 function getPaymentMethodDisplay(method) {
@@ -2266,7 +2851,11 @@ function getPaymentMethodDisplay(method) {
     card: { name: "Tarjeta", icon: "💳", type: "Crédito/Débito" },
     tarjeta: { name: "Tarjeta", icon: "💳", type: "Crédito/Débito" },
     "tarjeta debito": { name: "Tarjeta Débito", icon: "💳", type: "Débito" },
-    "tarjeta credito": { name: "Tarjeta Crédito", icon: "💳", type: "Crédito" },
+    "tarjeta credito": {
+      name: "Tarjeta Crédito",
+      icon: "💳",
+      type: "Crédito",
+    },
     pse: { name: "PSE", icon: "🏦", type: "Transferencia" },
     "pse/transferencia": {
       name: "PSE/Transferencia",
@@ -2287,7 +2876,11 @@ function getPaymentMethodDisplay(method) {
 }
 
 function getPaymentDetails(payment) {
-  const method = (payment.method || payment.payment_method || "").toLowerCase();
+  const method = (
+    payment.method ||
+    payment.payment_method ||
+    ""
+  ).toLowerCase();
   const details = payment.methodDetails || {};
 
   if (method.includes("card") || method.includes("tarjeta")) {
@@ -2446,20 +3039,20 @@ function exportPaymentsCSV() {
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   REAL-TIME SALES MONITORING - VENTAS EN LÍNEA
-   Actualización en tiempo real con polling + WebSocket
+ REAL-TIME SALES MONITORING - VENTAS EN LÍNEA
+ Actualización en tiempo real con polling + WebSocket
 ══════════════════════════════════════════════════════════ */
 let realTimePolling = null;
 let lastSaleCount = 0;
 /* ════════════════════════════════════════════════════════════════
-   [FUTURO] HOOKS PARA TIENDA EXTERNA (WooCommerce/Shopify)
-   - API endpoint: /api/online-sync  
-   - Webhook listener para ventas externas
-   - Dashboard canal "online" restaurable
+ [FUTURO] HOOKS PARA TIENDA EXTERNA (WooCommerce/Shopify)
+ - API endpoint: /api/online-sync  
+ - Webhook listener para ventas externas
+ - Dashboard canal "online" restaurable
 ═══════════════════════════════════════════════════════════════ */
 
 /* ══════════════════════════════════════════════════════════
-   SALES STATUS TRACKING - ESTADO DE PAGOS
+ SALES STATUS TRACKING - ESTADO DE PAGOS
 ══════════════════════════════════════════════════════════ */
 const SALE_STATUS = {
   PENDING: "pending",
@@ -2505,12 +3098,12 @@ function updateSaleStatus(id, newStatus) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   SALES KPIs BY CHANNEL - MÉTRICAS ESPECÍFICAS
+ SALES KPIs BY CHANNEL - MÉTRICAS ESPECÍFICAS
 ══════════════════════════════════════════════════════════ */
 /* [ELIMINADO] renderSalesKPIs() - SOLO POS FÍSICO */
 
 /* ══════════════════════════════════════════════════════════
-   SALES EXPORT - EXPORTACIÓN AVANZADA
+ SALES EXPORT - EXPORTACIÓN AVANZADA
 ══════════════════════════════════════════════════════════ */
 function exportAdvancedSales(filters = {}) {
   const { channel, method, status, dateFrom, dateTo, minAmount, maxAmount } =
@@ -2584,108 +3177,126 @@ function exportAdvancedSales(filters = {}) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   SALES
+ SALES
 ══════════════════════════════════════════════════════════ */
-function renderSalesStats() {
-  const getLocalDate = (iso) => {
-    const d = new Date(iso);
-    return (
-      d.getFullYear() +
-      "-" +
-      String(d.getMonth() + 1).padStart(2, "0") +
-      "-" +
-      String(d.getDate()).padStart(2, "0")
-    );
-  };
-  const today = getLocalDate(new Date());
-  const todaySales = salesLog.filter(
-    (s) => getLocalDate(s.timestamp) === today,
-  );
-  const todayTotal = todaySales.reduce((s, x) => s + x.total, 0);
-  const todayCount = todaySales.length;
-  const avg = todayCount ? todayTotal / todayCount : 0;
-  const monthTotal = salesLog.reduce((s, x) => s + x.total, 0);
+let _salesTimeRange = 'today';
 
-  $("sv1").textContent = fmt(todayTotal);
-  $("sv2").textContent = todayCount;
-  $("sv3").textContent = fmt(Math.round(avg));
-  $("sv4").textContent = fmt(monthTotal);
+function setSalesTimeFilter(range) {
+  _salesTimeRange = range;
+  const container = document.querySelector('#page-sales .phc-quick-filters');
+  if (container) {
+    container.querySelectorAll('.ph-tab').forEach(btn => {
+      btn.classList.remove('active');
+      const label = btn.textContent.toLowerCase();
+      if (range === 'today' && label === 'hoy') btn.classList.add('active');
+      if (range === 'yesterday' && label === 'ayer') btn.classList.add('active');
+      if (range === 'week' && label === 'semana') btn.classList.add('active');
+      if (range === 'month' && label === 'mes') btn.classList.add('active');
+      if (range === 'all' && label === 'todo') btn.classList.add('active');
+    });
+  }
+  if (range !== 'custom') $("sfDate").value = '';
+  renderSalesTable();
+}
+
+function resetSalesFilters() {
+  $("sfDate").value = '';
+  $("sfMethod").value = '';
+  $("sfChannel").value = '';
+  setSalesTimeFilter('today');
 }
 
 function renderSalesTable() {
-  const fDate = $("sfDate").value;
-  const fMethod = $("sfMethod").value;
-  const fChannel = $("sfChannel").value;
+  const tbody = $("salesBody");
+  if (!tbody) return;
+  const dateFilter = $("sfDate").value;
+  const methodFilter = $("sfMethod").value;
+  const channelFilter = $("sfChannel").value;
 
-  let list = [...salesLog];
-  if (fMethod) list = list.filter((s) => s.method === fMethod);
-  if (fChannel) list = list.filter((s) => s.channel === fChannel);
-  if (fDate) {
-    list = list.filter((s) => {
-      const d = new Date(s.timestamp);
-      const sDate =
-        d.getFullYear() +
-        "-" +
-        String(d.getMonth() + 1).padStart(2, "0") +
-        "-" +
-        String(d.getDate()).padStart(2, "0");
-      return sDate === fDate;
+  let filtered = [...salesLog];
+
+  // Filtro por fecha (Manual o Rápido)
+  if (dateFilter) {
+    filtered = filtered.filter(s => s.timestamp.startsWith(dateFilter));
+    _salesTimeRange = 'custom';
+    const container = document.querySelector('#page-sales .phc-quick-filters');
+    if (container) container.querySelectorAll('.ph-tab').forEach(btn => btn.classList.remove('active'));
+  } else if (_salesTimeRange !== 'all') {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    if (_salesTimeRange === 'today') {
+      filtered = filtered.filter(s => s.timestamp.startsWith(todayStr));
+    } else if (_salesTimeRange === 'yesterday') {
+      const yesterday = new Date();
+      yesterday.setDate(now.getDate() - 1);
+      const yestStr = yesterday.toISOString().split('T')[0];
+      filtered = filtered.filter(s => s.timestamp.startsWith(yestStr));
+    } else if (_salesTimeRange === 'week') {
+      const weekAgo = new Date();
+      weekAgo.setDate(now.getDate() - 7);
+      filtered = filtered.filter(s => new Date(s.timestamp) >= weekAgo);
+    } else if (_salesTimeRange === 'month') {
+      const monthAgo = new Date();
+      monthAgo.setMonth(now.getMonth() - 1);
+      filtered = filtered.filter(s => new Date(s.timestamp) >= monthAgo);
+    }
+  }
+
+  // Filtros adicionales
+  if (methodFilter) {
+    filtered = filtered.filter(s => (s.payment_method || s.method || '').toLowerCase().includes(methodFilter.toLowerCase()));
+  }
+  if (channelFilter) {
+    filtered = filtered.filter(s => (s.channel || 'fisica').toLowerCase() === channelFilter.toLowerCase());
+  }
+
+  let totalRevenue = 0;
+  tbody.innerHTML = "";
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Sin ventas en este periodo</td></tr>';
+  } else {
+    filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    filtered.forEach((s, idx) => {
+      totalRevenue += s.total;
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td style="color:var(--gray-text);font-size:11px">#${filtered.length - idx}</td>
+        <td style="font-size:12px">${new Date(s.timestamp).toLocaleString()}</td>
+        <td><span class="status-badge s-fisica">${s.channel || 'Física'}</span></td>
+        <td>${s.vendor || '---'}</td>
+        <td style="color:var(--gray-text)">${s.client_name || s.client || 'Mostrador'}</td>
+        <td style="font-size:11px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="${s.items.map(i => `${i.name} x${i.qty}`).join(', ')}">
+          ${s.items.map(i => `${i.name} x${i.qty}`).join(', ')}
+        </td>
+        <td><span class="status-badge s-ok">${s.payment_method || s.method || 'Efectivo'}</span></td>
+        <td style="font-weight:700; color:var(--accent)">${fmt(s.total)}</td>
+        <td>
+          <div style="display:flex; gap:5px; justify-content:center;">
+            <button class="action-btn" onclick="viewSaleDetails('${s.id}')" title="Ver detalles">👁</button>
+            <button class="action-btn" onclick="printReceipt(salesLog.find(x=>x.id==='${s.id}'))" title="Imprimir">🖨</button>
+            <button class="action-btn del" onclick="deleteSale('${s.id}')" title="Eliminar">✕</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(row);
     });
   }
 
-  const tbody = $("salesBody");
-  if (!list.length) {
-    tbody.innerHTML =
-      '<tr class="empty-row"><td colspan="9">Sin ventas registradas</td></tr>';
-    return;
-  }
-
-  let html = "";
-  let lastDay = "";
-
-  list.forEach((s, i) => {
-    const d = new Date(s.timestamp);
-    const day =
-      d.getFullYear() +
-      "-" +
-      String(d.getMonth() + 1).padStart(2, "0") +
-      "-" +
-      String(d.getDate()).padStart(2, "0");
-    if (day !== lastDay) {
-      const dayName = new Date(day + "T12:00:00").toLocaleDateString("es-CO", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-      });
-      html += `<tr class="day-divider"><td colspan="9">${dayName}</td></tr>`;
-      lastDay = day;
-    }
-
-    html += `
-      <tr>
-        <td style="color:var(--gray-text);font-size:12px">#${list.length - i}</td>
-        <td style="font-size:12px">${fmtDate(s.timestamp)}</td>
-        <td><span class="status-badge s-fisica">Física</span></td>
-        <td>${s.vendor}</td>
-        <td style="color:var(--gray-text)">${s.client}</td>
-        <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-          ${s.items.map((i) => `${i.name} ×${i.qty}`).join(", ")}
-        </td>
-        <td style="font-size:12px">${s.method}</td>
-        <td style="font-weight:700;color:var(--accent)">${fmt(s.total)}</td>
-        <td>
-          <button class="action-btn" onclick="printReceipt(salesLog.find(x=>x.id==='${s.id}'))" title="Imprimir recibo">🖨</button>
-          <button class="action-btn del" onclick="deleteSale('${s.id}')" title="Eliminar">✕</button>
-        </td>
-      </tr>`;
-  });
-  tbody.innerHTML = html;
+  // Actualizar Dashboard Dinámico
+  $("sv1").textContent = fmt(totalRevenue);
+  $("sv2").textContent = filtered.length;
+  const avg = filtered.length > 0 ? totalRevenue / filtered.length : 0;
+  $("sv3").textContent = fmt(Math.round(avg));
 }
 
 async function deleteSale(id) {
   if (!confirm("¿Eliminar esta venta del registro?")) return;
   try {
-    const res = await apiFetch(`${API_URL}/sales/${id}`, { method: "DELETE" });
+    const res = await apiFetch(`${API_URL}/sales/${id}`, {
+      method: "DELETE",
+    });
     if (res.ok) {
       fetchSalesLog();
       toast("Venta eliminada");
@@ -2732,13 +3343,15 @@ function exportSalesCSV() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   CSV EXPORT UTILITY
+ CSV EXPORT UTILITY
 ══════════════════════════════════════════════════════════ */
 function downloadCSV(rows, filename) {
   const csv = rows
     .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
     .join("\n");
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const blob = new Blob(["\uFEFF" + csv], {
+    type: "text/csv;charset=utf-8;",
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -2748,13 +3361,13 @@ function downloadCSV(rows, filename) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   INIT (después de funciones de datos)
+ INIT (después de funciones de datos)
 ══════════════════════════════════════════════════════════ */
 // Inicializar payMethods AHORA que defaultPayMethods() ya está definida
 payMethods = LS.get("payMethods", defaultPayMethods());
 
 /* ══════════════════════════════════════════════════════════
-   MOBILE SCANNER LINK (QR para abrir escáner en celular)
+ MOBILE SCANNER LINK (QR para abrir escáner en celular)
 ══════════════════════════════════════════════════════════ */
 function openMobileScannerLink() {
   const url = `${window.location.origin}${window.location.pathname}#qrscan`;
@@ -2783,7 +3396,7 @@ function closeMobileScannerLink() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   QR SCANNER DESDE FORMULARIO DE PRODUCTO
+ QR SCANNER DESDE FORMULARIO DE PRODUCTO
 ══════════════════════════════════════════════════════════ */
 function openProductQRScanner() {
   toast(
@@ -2792,13 +3405,13 @@ function openProductQRScanner() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   ANALYTICS DASHBOARD — Cargar datos avanzados del backend
+ ANALYTICS DASHBOARD — Cargar datos avanzados del backend
 ══════════════════════════════════════════════════════════ */
 
 async function loadAnalyticsData() {
   try {
     // Cargar datos en paralelo con mejor manejo de errores
-    const [channelRes, productsRes, timelineRes, inventoryRes, summaryRes] =
+    const [channelRes, productsRes, inventoryRes, summaryRes] =
       await Promise.all([
         apiFetch(`${API_URL}/analytics/sales-by-channel`).catch((e) => ({
           ok: false,
@@ -2806,13 +3419,12 @@ async function loadAnalyticsData() {
         apiFetch(`${API_URL}/analytics/top-products`).catch((e) => ({
           ok: false,
         })),
-        apiFetch(`${API_URL}/analytics/sales-timeline?period=day`).catch(
-          (e) => ({ ok: false }),
-        ),
         apiFetch(`${API_URL}/analytics/inventory-status`).catch((e) => ({
           ok: false,
         })),
-        apiFetch(`${API_URL}/analytics/summary`).catch((e) => ({ ok: false })),
+        apiFetch(`${API_URL}/analytics/summary`).catch((e) => ({
+          ok: false,
+        })),
       ]);
 
     let channelData = [];
@@ -2822,17 +3434,17 @@ async function loadAnalyticsData() {
     let summaryData = {};
 
     if (channelRes.ok) channelData = await channelRes.json().catch(() => []);
-    if (productsRes.ok) productsData = await productsRes.json().catch(() => []);
-    if (timelineRes.ok) timelineData = await timelineRes.json().catch(() => []);
+    if (productsRes.ok)
+      productsData = await productsRes.json().catch(() => []);
     if (inventoryRes.ok)
       inventoryData = await inventoryRes.json().catch(() => []);
-    if (summaryRes.ok) summaryData = await summaryRes.json().catch(() => ({}));
+    if (summaryRes.ok)
+      summaryData = await summaryRes.json().catch(() => ({}));
 
     // Guardar en variables globales para usar en gráficos
     window.analyticsCache = {
       channels: channelData,
       products: productsData,
-      timeline: timelineData,
       inventory: inventoryData,
       summary: summaryData,
     };
@@ -2840,7 +3452,6 @@ async function loadAnalyticsData() {
     // Renderizar gráficos solo si hay datos
     if (channelData.length > 0) renderChannelChart(channelData);
     if (productsData.length > 0) renderProductChart(productsData);
-    if (timelineData.length > 0) renderTimelineChart(timelineData);
 
     console.log("✅ Analytics data loaded:", window.analyticsCache);
   } catch (e) {
@@ -2871,7 +3482,7 @@ function renderChannelChart(data) {
       datasets: [
         {
           data: revenue,
-          backgroundColor: ["#e8ff47", "#2ed573", "#1e90ff"],
+          backgroundColor: ["#ffffff", "#34c759", "#007aff"],
           borderColor: "#0a0a0a",
           borderWidth: 2,
         },
@@ -2910,7 +3521,7 @@ function renderProductChart(data) {
         {
           label: "Unidades vendidas",
           data: quantities,
-          backgroundColor: "#e8ff47",
+          backgroundColor: "#ffffff",
           borderRadius: 3,
           borderWidth: 0,
         },
@@ -2936,77 +3547,13 @@ function renderProductChart(data) {
   });
 }
 
-// Gráfico: Timeline de ventas (últimos 7+ días)
-let timelineChartInstance = null;
-function renderTimelineChart(data) {
-  const el = document.getElementById("chartSalesTimeline");
-  if (!el) return;
-
-  const labels = data.map((d) => {
-    const [year, month, day] = d.period.split("-");
-    return new Date(year, parseInt(month) - 1, day).toLocaleDateString(
-      "es-CO",
-      { weekday: "short", month: "short", day: "numeric" },
-    );
-  });
-  const revenues = data.map((d) => d.total_revenue || 0);
-
-  if (timelineChartInstance) timelineChartInstance.destroy();
-
-  const ctx = el.getContext("2d");
-  timelineChartInstance = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels,
-      datasets: [
-        {
-          label: "Ingresos diarios (COP)",
-          data: revenues,
-          borderColor: "#e8ff47",
-          backgroundColor: "rgba(232, 255, 71, 0.05)",
-          borderWidth: 2,
-          fill: true,
-          tension: 0.4,
-          pointRadius: 4,
-          pointBackgroundColor: "#e8ff47",
-          pointBorderColor: "#0a0a0a",
-          pointBorderWidth: 2,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: {
-          display: true,
-          labels: { color: "#999", font: { size: 11 } },
-        },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => fmt(ctx.raw),
-          },
-        },
-      },
-      scales: {
-        x: {
-          grid: { color: "rgba(255,255,255,0.04)" },
-          ticks: { color: "#666", font: { size: 10 } },
-        },
-        y: {
-          grid: { color: "rgba(255,255,255,0.04)" },
-          ticks: { color: "#666", font: { size: 10 }, callback: (v) => fmt(v) },
-        },
-      },
-    },
-  });
-}
 
 /* ══════════════════════════════════════════════════════════
-   TOGGLE PAY SECTION (colapsar/expandir secciones de pago)
+ TOGGLE PAY SECTION (colapsar/expandir secciones de pago)
 ══════════════════════════════════════════════════════════ */
 async function loadLowStockAlerts() {
   try {
-    const res = await apiFetch(`${API_URL}/analytics/low-stock?threshold=10`);
+    const res = await apiFetch(`${API_URL}/analytics/low-stock?threshold=100`);
     if (!res.ok) {
       console.warn(`Low stock API returned ${res.status}`);
       return;
@@ -3014,31 +3561,38 @@ async function loadLowStockAlerts() {
     const lowStockProducts = await res.json().catch(() => []);
     const alertsDiv = $("lowStockAlerts");
 
-    if (!lowStockProducts || lowStockProducts.length === 0) {
+    // Si no hay productos bajo 100, u ocultar si ninguno baja de 50 (según petición)
+    const hasCritical = lowStockProducts.some(p => (p.total_stock || 0) <= 50);
+
+    if (!lowStockProducts || lowStockProducts.length === 0 || !hasCritical) {
       alertsDiv.innerHTML = "";
       return;
     }
 
     alertsDiv.innerHTML = `
-      <div class="alert-banner" style="background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);padding:16px;border-radius:4px;margin-bottom:16px">
-        <div style="display:flex;align-items:center;gap:12px;color:#ff6b6b">
-          <span style="font-size:20px">⚠️</span>
+      <div class="alert-banner" style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%), var(--gray); border: 1px solid var(--border); padding: 18px; border-radius: var(--radius); margin-bottom: 24px; box-shadow: var(--shadow); position: relative; overflow: hidden;">
+        <div style="position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 50%); pointer-events: none;"></div>
+        <div style="display:flex;align-items:center;gap:16px;color:#ffffff;position:relative;z-index:1">
+          <span style="font-size:24px; filter: drop-shadow(0 0 8px rgba(255,255,255,0.3))">⚠️</span>
           <div>
-            <strong>${lowStockProducts.length} producto(s) con bajo stock</strong>
-            <p style="font-size:12px;margin:4px 0 0 0;color:#999">Actualiza el inventario para evitar problemas de disponibilidad</p>
+            <strong style="font-family:'Bebas Neue', sans-serif; font-size:20px; letter-spacing:2px; color:#ffffff; text-shadow: 0 0 10px rgba(255,255,255,0.2)">${lowStockProducts.length} producto(s) con bajo stock</strong>
+            <p style="font-size:13px;margin:4px 0 0 0;color:var(--gray-text)">Actualiza el inventario para evitar problemas de disponibilidad</p>
           </div>
         </div>
-        <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
+        <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:10px;position:relative;z-index:1">
           ${lowStockProducts
-            .slice(0, 5)
-            .map(
-              (p) => `
-            <div style="background:rgba(255,107,107,0.2);padding:6px 10px;border-radius:3px;font-size:11px;color:#ff9898">
-              <strong>${p.name.slice(0, 20)}:</strong> ${p.total_stock} unidades
+        .slice(0, 8)
+        .map(
+          (p) => `
+            <div onclick="navigateTo('inventory'); setTimeout(() => editProduct('${p.product_id || p.id}'), 100);" 
+                 style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; font-size: 11px; color: var(--accent); transition: all 0.3s; cursor: pointer; backdrop-filter: blur(5px);"
+                 onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.borderColor='var(--accent)'"
+                 onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'; this.style.borderColor='var(--border)'">
+              <strong style="color:#ffffff">${p.name.slice(0, 25)}:</strong> <span style="color:var(--orange); font-weight:700">${p.total_stock} unidades</span>
             </div>
           `,
-            )
-            .join("")}
+        )
+        .join("")}
         </div>
       </div>
     `;
@@ -3048,13 +3602,13 @@ async function loadLowStockAlerts() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   VIP CUSTOMERS ANALYTICS
+ VIP CUSTOMERS ANALYTICS
 ══════════════════════════════════════════════════════════ */
 async function loadVIPCustomersData() {
   try {
     // Sincronizar clientes primero
-    await apiFetch(`${API_URL}/customers/sync`, { method: "POST" }).catch((e) =>
-      console.log("Sync error:", e),
+    await apiFetch(`${API_URL}/customers/sync`, { method: "POST" }).catch(
+      (e) => console.log("Sync error:", e),
     );
 
     const [vipRes, segmentRes] = await Promise.all([
@@ -3111,7 +3665,7 @@ async function loadVIPCustomersData() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   REORDER MANAGEMENT
+ REORDER MANAGEMENT
 ══════════════════════════════════════════════════════════ */
 async function loadReorderData() {
   try {
@@ -3178,7 +3732,7 @@ async function loadReorderData() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   DEMAND FORECASTING
+ DEMAND FORECASTING
 ══════════════════════════════════════════════════════════ */
 async function loadForecastData() {
   try {
@@ -3211,7 +3765,11 @@ async function loadForecastData() {
           f.trend === "up" ? "📈" : f.trend === "down" ? "📉" : "➡️";
         const confidence = f.confidence_score || 0;
         const confidenceColor =
-          confidence > 75 ? "#2ecc71" : confidence > 50 ? "#f39c12" : "#e74c3c";
+          confidence > 75
+            ? "#2ecc71"
+            : confidence > 50
+              ? "#f39c12"
+              : "#e74c3c";
 
         return `
         <tr>
@@ -3241,49 +3799,14 @@ function togglePaySection(sectionId) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   EDITOR DE MÉTODO DE PAGO
+ EDITOR DE MÉTODO DE PAGO
 ══════════════════════════════════════════════════════════ */
 let _editingPayMethodId = null;
 let _editingPaySectionKey = null;
 
-function openPayMethodEditor(sectionId, methodId) {
-  const key = PAY_SECTION_MAP[sectionId];
-  if (!key) return;
-  const m = payMethods[key].find((x) => x.id === methodId);
-  if (!m) return;
-  _editingPayMethodId = methodId;
-  _editingPaySectionKey = key;
-  $("payEditName").value = m.name;
-  $("payEditType").value = m.type;
-  $("payEditEnabled").checked = m.enabled;
-  $("payMethodModalOverlay").classList.add("open");
-  $("payMethodModal").classList.add("open");
-}
-
-function closePayMethodEditor() {
-  $("payMethodModalOverlay").classList.remove("open");
-  $("payMethodModal").classList.remove("open");
-  _editingPayMethodId = null;
-  _editingPaySectionKey = null;
-}
-
-function savePayMethodEditor() {
-  if (!_editingPaySectionKey || !_editingPayMethodId) return;
-  const m = payMethods[_editingPaySectionKey].find(
-    (x) => x.id === _editingPayMethodId,
-  );
-  if (!m) return;
-  m.name = $("payEditName").value.trim() || m.name;
-  m.enabled = $("payEditEnabled").checked;
-  LS.set("payMethods", payMethods);
-  renderPayMethods();
-  renderPOSPayGrid();
-  closePayMethodEditor();
-  toast("Método de pago actualizado");
-}
 
 /* ══════════════════════════════════════════════════════════
-   MODAL POS PAYMENT
+ MODAL POS PAYMENT
 ══════════════════════════════════════════════════════════ */
 function openPOSPaymentModal() {
   try {
@@ -3399,6 +3922,7 @@ function selectPOSPaymentMethod(methodId, methodName, methodType) {
     const totalEl = $("posPayTotal");
     if (totalEl) totalEl.textContent = fmt(total);
 
+    // Mostrar formulario según el método
     // Mostrar formulario según el método
     hideAllPaymentForms();
 
@@ -3686,7 +4210,7 @@ function processPOSSaleWithPayment(paymentDetails) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   MODAL: DATOS DEL CLIENTE (POS)
+ MODAL: DATOS DEL CLIENTE (POS)
 ══════════════════════════════════════════════════════════ */
 let posCurrentClient = null;
 
@@ -3796,7 +4320,7 @@ function clearPOSClient() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   STOCK CSV UPLOAD
+ STOCK CSV UPLOAD
 ══════════════════════════════════════════════════════════ */
 function triggerStockUpload() {
   const inp = $("invCsvInput");
@@ -3868,7 +4392,7 @@ async function handleStockUpload(event) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   DOM READY — listeners finales
+ DOM READY — listeners finales
 ══════════════════════════════════════════════════════════ */
 document.addEventListener("DOMContentLoaded", () => {
   // KPI cards → navegación

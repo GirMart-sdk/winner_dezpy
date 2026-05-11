@@ -1,9 +1,4 @@
-﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   WINNER STORE â€” styles.css
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-
-/* â”€â”€ TOKENS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-:root {
+﻿:root {
   --black: #0a0a0a;
   --black-soft: #111111;
   --white: #f5f5f0;
@@ -20,7 +15,6 @@
   --shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
 }
 
-/* â”€â”€ RESET & BASE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 *,
 *::before,
 *::after {
@@ -37,7 +31,7 @@ html {
 body {
   background: var(--black);
   color: var(--white);
-  font-family: 'DM Sans', sans-serif;
+  font-family: "DM Sans", sans-serif;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
@@ -48,7 +42,7 @@ img {
 }
 
 button {
-  font-family: 'DM Sans', sans-serif;
+  font-family: "DM Sans", sans-serif;
 }
 
 a {
@@ -56,7 +50,6 @@ a {
   color: inherit;
 }
 
-/* â”€â”€ SCROLLBAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 ::-webkit-scrollbar {
   width: 5px;
 }
@@ -74,7 +67,6 @@ a {
   background: var(--accent);
 }
 
-/* â”€â”€ CUSTOM CURSOR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 /* #cursor {
   width: 10px;
   height: 10px;
@@ -111,7 +103,6 @@ body.cursor-hover #cursor-ring {
   height: 52px;
 } */
 
-/* â”€â”€ TOAST â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .toast {
   position: fixed;
   bottom: 32px;
@@ -143,7 +134,6 @@ body.cursor-hover #cursor-ring {
   font-weight: 900;
 }
 
-/* â”€â”€ CART DRAWER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .cart-overlay {
   position: fixed;
   inset: 0;
@@ -188,7 +178,7 @@ body.cursor-hover #cursor-ring {
 }
 
 .cart-header h3 {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 22px;
   letter-spacing: 3px;
 }
@@ -300,7 +290,7 @@ body.cursor-hover #cursor-ring {
 }
 
 .cart-total span:last-child {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 24px;
   color: var(--accent);
   letter-spacing: 1px;
@@ -313,10 +303,12 @@ body.cursor-hover #cursor-ring {
   border: none;
   cursor: pointer;
   padding: 15px;
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 17px;
   letter-spacing: 3px;
-  transition: background var(--transition), transform 0.2s;
+  transition:
+    background var(--transition),
+    transform 0.2s;
   clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
 }
 
@@ -325,7 +317,6 @@ body.cursor-hover #cursor-ring {
   transform: scale(1.02);
 }
 
-/* â”€â”€ NAVBAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 nav {
   position: fixed;
   top: 0;
@@ -350,7 +341,7 @@ nav.scrolled {
 }
 
 .nav-logo {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 26px;
   letter-spacing: 5px;
   color: var(--white);
@@ -390,7 +381,7 @@ nav.scrolled {
 }
 
 .nav-links a::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -3px;
   left: 0;
@@ -472,7 +463,6 @@ nav.scrolled {
   transition: all var(--transition);
 }
 
-/* â”€â”€ MOBILE MENU OVERLAY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .nav-links.mobile-open {
   display: flex !important;
   position: fixed;
@@ -522,7 +512,6 @@ nav.scrolled {
   transform: rotate(-45deg) translate(5px, -5px);
 }
 
-/* â”€â”€ HERO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .hero {
   min-height: 100vh;
   display: grid;
@@ -537,8 +526,16 @@ nav.scrolled {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 60% 80% at 70% 50%, rgba(232, 255, 71, 0.04) 0%, transparent 60%),
-    radial-gradient(ellipse 40% 60% at 10% 80%, rgba(255, 60, 60, 0.03) 0%, transparent 50%);
+    radial-gradient(
+      ellipse 60% 80% at 70% 50%,
+      rgba(232, 255, 71, 0.04) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 40% 60% at 10% 80%,
+      rgba(255, 60, 60, 0.03) 0%,
+      transparent 50%
+    );
   pointer-events: none;
 }
 
@@ -582,7 +579,6 @@ nav.scrolled {
 }
 
 @keyframes pulse {
-
   0%,
   100% {
     opacity: 1;
@@ -596,7 +592,7 @@ nav.scrolled {
 }
 
 .hero-title {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: clamp(70px, 7.5vw, 108px);
   line-height: 0.93;
   letter-spacing: 2px;
@@ -634,7 +630,7 @@ nav.scrolled {
   border: none;
   cursor: pointer;
   padding: 15px 36px;
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 17px;
   letter-spacing: 3px;
   transition: all var(--transition);
@@ -683,7 +679,7 @@ nav.scrolled {
 }
 
 .stat-num {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 34px;
   letter-spacing: 1px;
   line-height: 1;
@@ -738,7 +734,7 @@ nav.scrolled {
 }
 
 .hero-badge-inner {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 13px;
   letter-spacing: 2px;
   text-align: center;
@@ -771,13 +767,12 @@ nav.scrolled {
 }
 
 .price-tag-val {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 30px;
   letter-spacing: 2px;
   color: var(--accent);
 }
 
-/* â”€â”€ MARQUEE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .marquee-section {
   overflow: hidden;
   border-top: 1px solid var(--border);
@@ -808,7 +803,7 @@ nav.scrolled {
   gap: 28px;
   padding: 0 28px;
   white-space: nowrap;
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 14px;
   letter-spacing: 4px;
   color: var(--gray-text);
@@ -819,7 +814,6 @@ nav.scrolled {
   font-size: 18px;
 }
 
-/* â”€â”€ SECTION COMMONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .categories,
 .products,
 .featured,
@@ -844,7 +838,7 @@ nav.scrolled {
 }
 
 .section-title {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: clamp(40px, 5vw, 62px);
   letter-spacing: 2px;
   line-height: 1;
@@ -857,7 +851,9 @@ nav.scrolled {
   text-transform: uppercase;
   border-bottom: 1px solid var(--border);
   padding-bottom: 4px;
-  transition: color 0.2s, border-color 0.2s;
+  transition:
+    color 0.2s,
+    border-color 0.2s;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -903,7 +899,11 @@ nav.scrolled {
 }
 
 .cat-card:hover .cat-overlay {
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0.1) 60%);
+  background: linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.88) 0%,
+    rgba(0, 0, 0, 0.1) 60%
+  );
 }
 
 .cat-info {
@@ -916,7 +916,7 @@ nav.scrolled {
 }
 
 .cat-name {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 26px;
   letter-spacing: 3px;
   margin-bottom: 4px;
@@ -952,7 +952,6 @@ nav.scrolled {
   border-color: var(--accent);
 }
 
-/* â”€â”€ FILTER BAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .filter-bar {
   display: flex;
   gap: 8px;
@@ -967,7 +966,7 @@ nav.scrolled {
   cursor: pointer;
   padding: 8px 20px;
   font-size: 12px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: "DM Sans", sans-serif;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   transition: all var(--transition);
@@ -981,7 +980,6 @@ nav.scrolled {
   border-color: var(--accent);
 }
 
-/* â”€â”€ PRODUCTS GRID â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .products-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1033,7 +1031,7 @@ nav.scrolled {
   border: none;
   cursor: pointer;
   padding: 11px 26px;
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 15px;
   letter-spacing: 3px;
   transform: translateY(12px);
@@ -1133,7 +1131,6 @@ nav.scrolled {
   text-decoration: line-through;
 }
 
-/* â”€â”€ PROMO BANNER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .promo-banner {
   margin: 0 80px 100px;
   background: var(--accent);
@@ -1149,7 +1146,7 @@ nav.scrolled {
 
 .promo-bg-text {
   position: absolute;
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 200px;
   letter-spacing: -6px;
   color: rgba(0, 0, 0, 0.07);
@@ -1171,7 +1168,7 @@ nav.scrolled {
 }
 
 .promo-title {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 50px;
   letter-spacing: 2px;
   line-height: 1;
@@ -1187,7 +1184,7 @@ nav.scrolled {
 }
 
 .promo-code {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 22px;
   letter-spacing: 5px;
   background: var(--black);
@@ -1210,7 +1207,6 @@ nav.scrolled {
   margin-left: auto;
 }
 
-/* â”€â”€ FEATURED â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .featured-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1237,7 +1233,12 @@ nav.scrolled {
 .featured-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.18) 50%, transparent 70%);
+  background: linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.92) 0%,
+    rgba(0, 0, 0, 0.18) 50%,
+    transparent 70%
+  );
 }
 
 .featured-content {
@@ -1264,7 +1265,7 @@ nav.scrolled {
 }
 
 .featured-name {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 38px;
   letter-spacing: 2px;
   line-height: 1;
@@ -1284,7 +1285,7 @@ nav.scrolled {
   color: var(--accent);
   cursor: pointer;
   font-size: 12px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: "DM Sans", sans-serif;
   font-weight: 600;
   letter-spacing: 2px;
   text-transform: uppercase;
@@ -1293,7 +1294,9 @@ nav.scrolled {
   gap: 8px;
   border-bottom: 1px solid rgba(232, 255, 71, 0.4);
   padding-bottom: 3px;
-  transition: gap 0.3s, border-color 0.3s;
+  transition:
+    gap 0.3s,
+    border-color 0.3s;
 }
 
 .featured-item:hover .featured-cta {
@@ -1301,7 +1304,6 @@ nav.scrolled {
   border-color: var(--accent);
 }
 
-/* â”€â”€ TESTIMONIALS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .testimonials {
   background: var(--gray);
 }
@@ -1317,7 +1319,9 @@ nav.scrolled {
   background: var(--black);
   padding: 30px;
   border: 1px solid var(--border);
-  transition: border-color var(--transition), transform 0.3s;
+  transition:
+    border-color var(--transition),
+    transform 0.3s;
 }
 
 .test-card:hover {
@@ -1366,13 +1370,12 @@ nav.scrolled {
   margin-top: 2px;
 }
 
-/* â”€â”€ NEWSLETTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .newsletter {
   text-align: center;
 }
 
 .newsletter-title {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: clamp(46px, 6vw, 78px);
   letter-spacing: 3px;
   line-height: 1.05;
@@ -1407,7 +1410,7 @@ nav.scrolled {
   background: none;
   border: none;
   color: var(--white);
-  font-family: 'DM Sans', sans-serif;
+  font-family: "DM Sans", sans-serif;
   font-size: 14px;
   padding: 15px 22px;
   outline: none;
@@ -1423,7 +1426,7 @@ nav.scrolled {
   border: none;
   cursor: pointer;
   padding: 15px 26px;
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 15px;
   letter-spacing: 2px;
   white-space: nowrap;
@@ -1434,7 +1437,6 @@ nav.scrolled {
   background: var(--white);
 }
 
-/* â”€â”€ FOOTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 footer {
   background: var(--gray);
   border-top: 1px solid var(--border);
@@ -1541,7 +1543,6 @@ footer {
   font-weight: 700;
 }
 
-/* â”€â”€ REVEAL ANIMATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .fade-up {
   animation: fadeUp 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   opacity: 0;
@@ -1578,7 +1579,9 @@ footer {
 .reveal {
   opacity: 0;
   transform: translateY(24px);
-  transition: opacity 0.65s ease, transform 0.65s ease;
+  transition:
+    opacity 0.65s ease,
+    transform 0.65s ease;
 }
 
 .reveal.visible {
@@ -1586,7 +1589,6 @@ footer {
   transform: translateY(0);
 }
 
-/* â”€â”€ RESPONSIVE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 1200px) {
   .products-grid {
     grid-template-columns: repeat(3, 1fr);
@@ -1721,9 +1723,7 @@ footer {
   }
 }
 
-/* â”€â”€ TOUCH DEVICE: hide custom cursor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (hover: none) and (pointer: coarse) {
-
   #cursor,
   #cursor-ring {
     display: none !important;
@@ -1734,7 +1734,6 @@ footer {
   }
 }
 
-/* â”€â”€ IMAGE LOAD ANIMATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .img-loading {
   opacity: 0;
   transition: opacity 0.5s ease;
@@ -1744,9 +1743,8 @@ footer {
   opacity: 1;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* 
    COLORFUL FOOTER PAYMENT ICONS
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .pi-pse {
   background: rgba(30, 144, 255, 0.15) !important;
   color: #1e90ff !important;
@@ -1777,9 +1775,7 @@ footer {
   border-color: rgba(255, 107, 0, 0.3) !important;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   ADMIN PANEL â€” FAB BUTTON
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* 
 .admin-fab {
   position: fixed;
   bottom: 28px;
@@ -1824,7 +1820,6 @@ footer {
   pointer-events: all;
 }
 
-/* â”€â”€ ADMIN PANEL DRAWER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .admin-panel {
   position: fixed;
   top: 0;
@@ -1855,7 +1850,7 @@ footer {
 }
 
 .adm-logo {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 22px;
   letter-spacing: 4px;
   color: var(--white);
@@ -1903,7 +1898,6 @@ footer {
   opacity: 1;
 }
 
-/* â”€â”€ ADMIN TABS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .adm-tabs {
   display: flex;
   border-bottom: 1px solid var(--border);
@@ -1939,7 +1933,6 @@ footer {
   border-bottom-color: var(--accent);
 }
 
-/* â”€â”€ TAB CONTENT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .adm-content {
   display: none;
   flex: 1;
@@ -1952,7 +1945,7 @@ footer {
 }
 
 .adm-section-title h2 {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 24px;
   letter-spacing: 3px;
   margin-bottom: 4px;
@@ -1975,7 +1968,6 @@ footer {
   border-bottom: 1px solid var(--border);
 }
 
-/* â”€â”€ PAY STATS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .pay-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -1991,7 +1983,7 @@ footer {
 }
 
 .pay-stat-val {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 26px;
   color: var(--accent);
   letter-spacing: 1px;
@@ -2005,9 +1997,6 @@ footer {
   margin-top: 4px;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   COLORFUL PAYMENT METHOD CARDS
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .pay-methods-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -2074,7 +2063,7 @@ footer {
 }
 
 .pm-toggle::after {
-  content: '';
+  content: "";
   position: absolute;
   width: 14px;
   height: 14px;
@@ -2099,7 +2088,6 @@ footer {
   white-space: nowrap;
 }
 
-/* â”€â”€ ADMIN FORMS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .pay-form,
 .sale-form-card {
   background: var(--gray);
@@ -2144,7 +2132,7 @@ footer {
   padding: 10px 14px;
   outline: none;
   transition: border-color 0.2s;
-  font-family: 'DM Sans', sans-serif;
+  font-family: "DM Sans", sans-serif;
 }
 
 .form-group input:focus,
@@ -2173,7 +2161,7 @@ footer {
   padding: 10px 14px;
   font-size: 13px;
   outline: none;
-  font-family: 'DM Sans', sans-serif;
+  font-family: "DM Sans", sans-serif;
 }
 
 .adm-search:focus {
@@ -2207,13 +2195,12 @@ footer {
   outline: none;
 }
 
-/* â”€â”€ ADMIN BUTTONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .adm-btn-primary {
   background: var(--accent);
   color: var(--black);
   border: none;
   padding: 10px 22px;
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 15px;
   letter-spacing: 2px;
   cursor: pointer;
@@ -2261,7 +2248,6 @@ footer {
   color: var(--red);
 }
 
-/* â”€â”€ ADMIN TABLES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .adm-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--border);
@@ -2308,7 +2294,6 @@ footer {
   color: var(--gray-text);
 }
 
-/* â”€â”€ STATUS BADGES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .adm-badge-ok {
   display: inline-block;
   padding: 3px 10px;
@@ -2397,12 +2382,11 @@ footer {
 }
 
 .sale-total-val {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 28px;
   color: var(--accent);
 }
 
-/* â”€â”€ SIZE STOCK GRID (modal) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .size-stock-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -2440,7 +2424,6 @@ footer {
   border-color: rgba(232, 255, 71, 0.4);
 }
 
-/* â”€â”€ ADMIN MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -2491,7 +2474,7 @@ footer {
 }
 
 .modal-header h3 {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 20px;
   letter-spacing: 2px;
   color: var(--white);
@@ -2512,7 +2495,6 @@ footer {
   gap: 10px;
 }
 
-/* â”€â”€ ADMIN RESPONSIVE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 600px) {
   .admin-panel {
     width: 100vw;
@@ -2533,12 +2515,9 @@ footer {
   .pay-stats {
     grid-template-columns: 1fr 1fr;
   }
-}/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   RESPONSIVE
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+}
 
 @media (max-width: 768px) {
-
   .tracking-tabs {
     gap: 8px;
   }
@@ -2595,9 +2574,6 @@ footer {
   }
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   PAYMENT MODAL STYLES
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .payment-modal {
   max-width: 560px !important;
 }
@@ -2702,4 +2678,3 @@ footer {
   color: var(--gray-text);
   letter-spacing: 1px;
 }
-

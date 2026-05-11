@@ -11,8 +11,9 @@ const API_URL = (() => {
 
   // Si se abre el HTML desde archivo local, asumimos backend local.
   if (window.location.origin.startsWith("file:")) {
-    // Preferir HTTPS en desarrollo remoto, HTTP solo en localhost
-    const protocol = localStorage.getItem("apiProtocol") || "http";
+    // Mantener HTTP para localhost en desarrollo local.
+    // En despliegues remotos usa siempre HTTPS desde el hosting (IIS) y evita mezclar protocolos.
+    const protocol = "http";
     return `${protocol}://localhost:3000/api`;
   }
 

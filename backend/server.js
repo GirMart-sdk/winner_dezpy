@@ -6,9 +6,8 @@
 "use strict";
 
 const express = require("express");
-const https = require("https");
 const http = require("http");
-const fs = require("fs");
+
 const path = require("path");
 const cors = require("cors");
 const bodyParser = require("body-parser");
@@ -23,7 +22,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
+// Servir solo HTTP (sin redirecciones ni lectura de certificados).
+// Nota: este flag existe para evitar ReferenceError durante ajustes parciales.
+const FORCE_HTTPS = false;
+
 /* ── Configuración de seguridad ──────────────────────────── */
+
 const API_KEY = process.env.API_KEY || "prod-api-key-winner-2026";
 const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret-winner-2026";
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
@@ -67,7 +71,7 @@ app.use(
 );
 
 /* ── Forzar HTTPS en producción ────────────────────────── */
-if (IS_PRODUCTION) {
+if (IS_PRODUCTION && FORCE_HTTPS) {
   app.use((req, res, next) => {
     // Verificar si viene de proxy (CloudFlare, Heroku, etc) con encriptación
     if (
@@ -182,7 +186,7 @@ function normalizeProduct(row) {
   let stock = {};
   try {
     stock = JSON.parse(row.stock || "{}");
-  } catch {}
+  } catch { }
   return {
     ...row,
     stock,
@@ -885,8 +889,8 @@ function handlePostSales(req, res) {
   const saleId =
     id ||
     "S" +
-      Date.now().toString(36).toUpperCase() +
-      Math.random().toString(36).slice(2, 5).toUpperCase();
+    Date.now().toString(36).toUpperCase() +
+    Math.random().toString(36).slice(2, 5).toUpperCase();
   const saleTimestamp = timestamp || new Date().toISOString();
 
   db.run(
@@ -982,7 +986,7 @@ app.get("/api/stats", requireAuth, (req, res) => {
       )) AS out_of_stock,
       (SELECT COUNT(*) FROM (
         SELECT product_id FROM inventory
-        GROUP BY product_id HAVING SUM(qty) > 0 AND SUM(qty) <= 5
+        GROUP BY product_id HAVING SUM(qty) > 0 AND SUM(qty) <= 100
       )) AS low_stock
   `,
     [`${today}%`, `${today}%`],
@@ -1127,7 +1131,7 @@ app.get("/api/analytics/top-products", requireAuth, (req, res) => {
 
 // GET /api/analytics/low-stock — Productos con bajo stock
 app.get("/api/analytics/low-stock", requireAuth, (req, res) => {
-  const threshold = req.query.threshold || 5;
+  const threshold = req.query.threshold || 100;
 
   db.all(
     `
@@ -1713,9 +1717,9 @@ app.post("/api/demand-forecast/calculate", requireAuth, (req, res) => {
               `,
                     [
                       "FORE-" +
-                        Date.now().toString(36).toUpperCase() +
-                        "-" +
-                        prod.id,
+                      Date.now().toString(36).toUpperCase() +
+                      "-" +
+                      prod.id,
                       prod.id,
                       predictedQty,
                       confidence,
@@ -1893,67 +1897,48 @@ app.post("/api/refresh-token", (req, res) => {
 
 /* ═══════════════════════════════════════════════════════════
    RUTA — GOOGLE MERCHANT FEED CSV
-   ═══════════════════════════════════════════════════════════ */
-function esc(v) {
-  if (v == null) return "";
-  const s = String(v);
-  return s.includes('"') || s.includes(",") || s.includes("\n")
-    ? `"${s.replace(/"/g, '""')}"`
-    : s;
-}
+   ═══════════�function startServer() {
+  const certPath = process.env.CERT_PATH;
+  const keyPath  = process.env.KEY_PATH;
 
-app.get("/merchant-feed.csv", (req, res) => {
-  db.all(PRODUCTS_QUERY + " ORDER BY p.rowid ASC", [], (err, rows) => {
-    if (err) return res.status(500).send("Error al generar el feed");
+  if (IS_PRODUCTION && certPath && keyPath) {
+    // PRODUCCION: HTTPS + redirect HTTP -> HTTPS
+    try {
+      const options = {
+        key:  fs.readFileSync(keyPath),
+        cert: fs.readFileSync(certPath),
+      };
 
-    const products = rows.map(normalizeProduct);
-    const base = `${req.protocol}://${req.get("host")}`;
+      const redirectApp = express();
+      redirectApp.use((req, res) =>
+        res.redirect(301, `https://${req.hostname}${req.originalUrl}`)
+      );
 
-    const header = [
-      "id",
-      "title",
-      "description",
-      "link",
-      "image_link",
-      "additional_image_link",
-      "availability",
-      "price",
-      "sale_price",
-      "sale_price_effective_date",
-      "brand",
-      "gtin",
-      "mpn",
-      "condition",
-      "google_product_category",
-      "product_type",
-      "gender",
-      "age_group",
-      "color",
-      "size",
-      "material",
-      "pattern",
-      "shipping_weight",
-      "item_group_id",
-      "identifier_exists",
-      "tax",
-      "shipping",
-      "custom_label_0",
-      "custom_label_1",
-    ];
+      https.createServer(options, app).listen(HTTPS_PORT, () => {
+        console.log(`
+╔══════════════════════════════════════════════╗
+║   WINNER STORE  —  Servidor v2.0 (HTTPS)    ║
+╠══════════════════════════════════════════════╣
+║   🔒  https://winner.com                     ║
+║   🔑  Admin: admin / winner2026              ║
+║   📦  API:   /api/products                  ║
+║   📊  Stats: /api/stats                     ║
+║   🛒  Feed:  /merchant-feed.csv             ║
+╚══════════════════════════════════════════════╝`);
+      });
 
-    const lines = products.map((p) => {
-      const m = p.metadata || {};
-      const hasStock = Object.values(p.stock || {}).some((q) => q > 0);
-      const isOnSale = p.oldPrice && Number(p.oldPrice) > Number(p.price);
-      const basePrice = Number(p.price || 0).toFixed(2);
-      const productUrl = `${base}/?product=${p.id}#productos`;
-      const description = m.productType
-        ? `${p.name} · ${m.productType} by Winner.`
-        : `Ropa urbana Winner. ${p.name} — Streetwear colombiano.`;
+      http.createServer(redirectApp).listen(HTTP_PORT, () => {
+        console.log(`   ↳ HTTP redirect activo en puerto ${HTTP_PORT}`);
+      });
 
-      return [
-        p.id,
-        p.name,
+    } catch (err) {
+      console.error("❌ Error cargando certificados SSL/TLS:", err.message);
+      startHttp();
+    }
+  } else {
+    startHttp();
+  }
+}       p.name,
         description,
         productUrl,
         p.img || "",
@@ -2001,6 +1986,8 @@ app.get("/merchant-feed.csv", (req, res) => {
 app.get(/(.*)/, (req, res, next) => {
   if (req.path.startsWith("/api") || req.path.startsWith("/merchant"))
     return next();
+  if (req.path.startsWith("/admin"))
+    return res.sendFile(path.join(CLIENT_ROOT, "admin-panel.html"));
   res.sendFile(path.join(CLIENT_ROOT, "index.html"));
 });
 
@@ -2019,8 +2006,14 @@ const HTTPS_PORT = process.env.HTTPS_PORT || 443;
 const HTTP_PORT = process.env.HTTP_PORT || 80;
 
 function startServer() {
+  // Deshabilitado temporalmente: forzamos HTTP para que admin funcione sin problemas de SSL
+  // (evita que intente leer certificados y/o redirect a https)
+  startHttp();
+  return;
+
   if (IS_PRODUCTION && process.env.CERT_PATH && process.env.KEY_PATH) {
     // PRODUCCIÓN: Usar HTTPS con redirección HTTP → HTTPS
+
     try {
       const options = {
         key: fs.readFileSync(process.env.KEY_PATH),
@@ -2055,15 +2048,15 @@ function startServer() {
     } catch (err) {
       console.error("❌ Error cargando certificados SSL/TLS:", err.message);
       console.log("ℹ️  Usando HTTP como alternativa");
-      fallbackToHttp();
+      startHttp();
     }
   } else {
     // DESARROLLO: Usar HTTP simple
-    fallbackToHttp();
+    startHttp();
   }
 }
 
-function fallbackToHttp() {
+function startHttp() {
   http.createServer(app).listen(PORT, () => {
     console.log(`
 ╔══════════════════════════════════════════════╗
@@ -2074,9 +2067,6 @@ function fallbackToHttp() {
 ║   📦  API:   /api/products                  ║
 ║   📊  Stats: /api/stats                     ║
 ║   🛒  Feed:  /merchant-feed.csv             ║
-║                                              ║
-║   ⚠️  DESARROLLO: HTTP habilitado             ║
-║   En producción usar HTTPS                  ║
 ╚══════════════════════════════════════════════╝`);
   });
 }
