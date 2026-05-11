@@ -25,7 +25,7 @@ echo ║                                                                ║
 echo ╚════════════════════════════════════════════════════════════════╝
 echo.
 
-timeout /t 3 /nobreak
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Sleep -Seconds 3" >nul 2>&1
 
 REM Verificar que npm está instalado
 echo [Verificando npm...]

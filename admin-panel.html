@@ -89,7 +89,7 @@
         </div>
       </div>
       <nav class="sidebar-nav">
-        <button class="snav-item active" data-page="dashboard">
+        <button class="snav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <rect x="3" y="3" width="7" height="7" />
             <rect x="14" y="3" width="7" height="7" />
@@ -98,7 +98,7 @@
           </svg>
           Dashboard
         </button>
-        <button class="snav-item" data-page="inventory">
+        <button class="snav-item" data-page="inventory" onclick="navigateTo('inventory')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <path
               d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
@@ -106,7 +106,7 @@
           Inventario &amp; QR
           <span id="inventoryInsightBadge" class="nav-badge" style="display:none">0</span>
         </button>
-        <button class="snav-item" data-page="pos">
+        <button class="snav-item" data-page="pos" onclick="navigateTo('pos')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <rect x="2" y="3" width="20" height="14" rx="2" />
             <line x1="8" y1="21" x2="16" y2="21" />
@@ -114,20 +114,20 @@
           </svg>
           Punto de Venta
         </button>
-        <button class="snav-item" data-page="payments">
+        <button class="snav-item" data-page="payments" onclick="navigateTo('payments')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <rect x="1" y="4" width="22" height="16" rx="2" />
             <line x1="1" y1="10" x2="23" y2="10" />
           </svg>
           Métodos de Pago
         </button>
-        <button class="snav-item" data-page="sales">
+        <button class="snav-item" data-page="sales" onclick="navigateTo('sales')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
           </svg>
           Registro de Ventas
         </button>
-        <button class="snav-item" data-page="vip">
+        <button class="snav-item" data-page="vip" onclick="navigateTo('vip')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
             <circle cx="12" cy="7" r="4" />
@@ -135,7 +135,7 @@
           </svg>
           Clientes VIP
         </button>
-        <button class="snav-item" data-page="reorder">
+        <button class="snav-item" data-page="reorder" onclick="navigateTo('reorder')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <circle cx="12" cy="12" r="1" />
             <path d="M19.07 4.93l-2.82 2.82" />
@@ -145,14 +145,14 @@
           </svg>
           Reorden Automático
         </button>
-        <button class="snav-item" data-page="forecast">
+        <button class="snav-item" data-page="forecast" onclick="navigateTo('forecast')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <polyline points="23 6 13.5 15.5 8.5 10.5 1 17" />
             <polyline points="17 6 23 6 23 12" />
           </svg>
           Predicción de Demanda
         </button>
-        <button class="snav-item" data-page="qrscan">
+        <button class="snav-item" data-page="qrscan" onclick="navigateTo('qrscan')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2" />
             <rect x="7" y="7" width="4" height="4" />
@@ -321,7 +321,7 @@
             <option value="hombre">Hombre</option>
             <option value="accesorios">Accesorios</option>
           </select>
-          <button class="btn-accent" onclick="applyAllInsights()" style="background: linear-gradient(135deg, #ffb347, #ff6b6b); border: none; color: #000; font-weight: 800; padding: 0 20px;">⚡ APLICAR SUGERENCIAS</button>
+          <button class="btn-accent" onclick="autoApplyDiscounts()" style="background: linear-gradient(135deg, #34c759, #00c7b7); border: none; color: #fff; font-weight: 800; padding: 0 20px;">🔄 AUTO-DESCUENTOS</button>
           <button class="btn-accent" onclick="openProductModal()">
             + Nuevo producto
           </button>
@@ -1591,7 +1591,7 @@
   <!-- TOAST -->
   <div class="toast" id="adminToast"><span id="adminToastMsg"></span></div>
 
-  <script src="admin-panel.js"></script>
+  <script src="admin-panel.js?v=3.0.3"></script>
 </body>
 
 </html>

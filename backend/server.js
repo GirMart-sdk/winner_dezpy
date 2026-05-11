@@ -22,10 +22,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
-// Servir solo HTTP (sin redirecciones ni lectura de certificados).
-// Nota: este flag existe para evitar ReferenceError durante ajustes parciales.
-const FORCE_HTTPS = false;
-
 /* ── Configuración de seguridad ──────────────────────────── */
 
 const API_KEY = process.env.API_KEY || "prod-api-key-winner-2026";
@@ -70,35 +66,13 @@ app.use(
   }),
 );
 
-/* ── Forzar HTTPS en producción ────────────────────────── */
-if (IS_PRODUCTION && FORCE_HTTPS) {
-  app.use((req, res, next) => {
-    // Verificar si viene de proxy (CloudFlare, Heroku, etc) con encriptación
-    if (
-      req.headers["x-forwarded-proto"] !== "https" &&
-      req.protocol !== "https"
-    ) {
-      return res.redirect(301, `https://${req.hostname}${req.originalUrl}`);
-    }
-    next();
-  });
-
-  // Agregar headers de seguridad
-  app.use((req, res, next) => {
-    res.setHeader(
-      "Strict-Transport-Security",
-      "max-age=31536000; includeSubDomains; preload",
-    );
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("X-Frame-Options", "DENY");
-    res.setHeader("X-XSS-Protection", "1; mode=block");
-    res.setHeader(
-      "Content-Security-Policy",
-      "default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.wompi.co https://www.pagofacil.com.co; style-src 'self' 'unsafe-inline'",
-    );
-    next();
-  });
-}
+/* ── Headers básicos. Sin HTTPS, redirecciones ni certificados. ── */
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("Referrer-Policy", "no-referrer-when-downgrade");
+  next();
+});
 
 app.use(bodyParser.json({ limit: "15mb" }));
 app.use(bodyParser.urlencoded({ limit: "15mb", extended: true }));
@@ -840,7 +814,24 @@ app.get("/api/sales", requireAuth, (req, res) => {
 
   db.all(sql, args, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json(rows.map((r) => ({ ...r, items: JSON.parse(r.items || "[]") })));
+    res.json(
+      rows.map((r) => {
+        const method = r.payment_method || r.method || "Efectivo";
+        const normalizedStatus =
+          String(method).toLowerCase().includes("efectivo") &&
+            (!r.payment_status || r.payment_status === "pending")
+            ? "completed"
+            : r.payment_status || "completed";
+
+        return {
+          ...r,
+          method,
+          payment_method: method,
+          payment_status: normalizedStatus,
+          items: JSON.parse(r.items || "[]"),
+        };
+      }),
+    );
   });
 });
 
@@ -874,6 +865,9 @@ function handlePostSales(req, res) {
     vendor,
     client,
     method,
+    payment_method,
+    payment_status,
+    paymentDetails,
     channel,
     subtotal,
     discount,
@@ -895,8 +889,11 @@ function handlePostSales(req, res) {
 
   db.run(
     `
-    INSERT INTO sales (id, timestamp, vendor, client, method, channel, subtotal, discount, total)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO sales (
+      id, timestamp, vendor, client, method, channel,
+      subtotal, discount, total, payment_method, payment_status, reference_number
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `,
     [
       saleId,
@@ -908,6 +905,9 @@ function handlePostSales(req, res) {
       subtotal || 0,
       discount || 0,
       total,
+      payment_method || method || "Efectivo",
+      payment_status || "completed",
+      paymentDetails?.reference || paymentDetails?.transactionId || null,
     ],
     function (sqlErr) {
       if (sqlErr) {
@@ -936,11 +936,13 @@ function handlePostSales(req, res) {
               if (itemsProcessed === items.length) {
                 stmt.finalize((err) => {
                   if (err) console.error("❌ Error finalizing:", err);
-                  console.log("✅ Venta guardada:", saleId);
-                  res.json({
-                    success: true,
-                    id: saleId,
-                    message: "Venta registrada exitosamente",
+                  decrementSoldStock(items, () => {
+                    console.log("✅ Venta guardada:", saleId);
+                    res.json({
+                      success: true,
+                      id: saleId,
+                      message: "Venta registrada exitosamente",
+                    });
                   });
                 });
               }
@@ -948,15 +950,54 @@ function handlePostSales(req, res) {
           );
         });
       } else {
-        console.log("✅ Venta guardada:", saleId);
-        res.json({
-          success: true,
-          id: saleId,
-          message: "Venta registrada exitosamente",
+        decrementSoldStock([], () => {
+          console.log("✅ Venta guardada:", saleId);
+          res.json({
+            success: true,
+            id: saleId,
+            message: "Venta registrada exitosamente",
+          });
         });
       }
     },
   );
+}
+
+function decrementSoldStock(items = [], done) {
+  const stockUpdates = items
+    .map((item) => ({
+      productId: item.id || item.product_id || item.productId,
+      size: item.size === "N/A" ? "U" : item.size || "U",
+      qty: Number(item.qty || 1),
+    }))
+    .filter((item) => item.productId && item.qty > 0);
+
+  if (!stockUpdates.length) return done();
+
+  let pending = stockUpdates.length;
+  stockUpdates.forEach((item) => {
+    db.run(
+      `
+      UPDATE inventory
+      SET qty = CASE WHEN qty >= ? THEN qty - ? ELSE 0 END,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE product_id = ? AND size = ?
+    `,
+      [item.qty, item.qty, item.productId, item.size],
+      (err) => {
+        if (err) {
+          console.error(
+            "❌ Error descontando stock:",
+            item.productId,
+            item.size,
+            err.message,
+          );
+        }
+        pending--;
+        if (pending === 0) done();
+      },
+    );
+  });
 }
 
 // DELETE /api/sales/:id
@@ -1857,10 +1898,7 @@ app.get("/api/reports/inventory-csv", requireAuth, (req, res) => {
 /* ── RUTA — AUTH
    ═══════════════════════════════════════════════════════════ */
 app.post("/api/login", (req, res) => {
-  console.log("📨 /api/login body:", req.body);
-  console.log("📨 /api/login body type:", typeof req.body);
   const { user, pass } = req.body || {};
-  console.log("📨 user:", user, "pass:", pass);
   if (user === ADMIN_USER && passwordMatches(pass)) {
     const token = jwt.sign({ sub: user, role: "admin" }, JWT_SECRET, {
       expiresIn: "7d",
@@ -1897,48 +1935,62 @@ app.post("/api/refresh-token", (req, res) => {
 
 /* ═══════════════════════════════════════════════════════════
    RUTA — GOOGLE MERCHANT FEED CSV
-   ═══════════�function startServer() {
-  const certPath = process.env.CERT_PATH;
-  const keyPath  = process.env.KEY_PATH;
+   ═══════════════════════════════════════════════════════════ */
+app.get("/merchant-feed.csv", requireApiKey, (req, res) => {
+  db.all(PRODUCTS_QUERY, [], (err, rows = []) => {
+    if (err) return res.status(500).send("Error generando merchant feed");
 
-  if (IS_PRODUCTION && certPath && keyPath) {
-    // PRODUCCION: HTTPS + redirect HTTP -> HTTPS
-    try {
-      const options = {
-        key:  fs.readFileSync(keyPath),
-        cert: fs.readFileSync(certPath),
-      };
+    const esc = (value) => {
+      const text = String(value ?? "");
+      return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
 
-      const redirectApp = express();
-      redirectApp.use((req, res) =>
-        res.redirect(301, `https://${req.hostname}${req.originalUrl}`)
-      );
+    const header = [
+      "id",
+      "title",
+      "description",
+      "link",
+      "image_link",
+      "additional_image_link",
+      "availability",
+      "price",
+      "sale_price",
+      "sale_price_effective_date",
+      "brand",
+      "gtin",
+      "mpn",
+      "condition",
+      "google_product_category",
+      "product_type",
+      "gender",
+      "age_group",
+      "color",
+      "size",
+      "material",
+      "pattern",
+      "shipping_weight",
+      "item_group_id",
+      "identifier_exists",
+      "tax",
+      "shipping",
+      "custom_label_0",
+      "custom_label_1",
+    ];
 
-      https.createServer(options, app).listen(HTTPS_PORT, () => {
-        console.log(`
-╔══════════════════════════════════════════════╗
-║   WINNER STORE  —  Servidor v2.0 (HTTPS)    ║
-╠══════════════════════════════════════════════╣
-║   🔒  https://winner.com                     ║
-║   🔑  Admin: admin / winner2026              ║
-║   📦  API:   /api/products                  ║
-║   📊  Stats: /api/stats                     ║
-║   🛒  Feed:  /merchant-feed.csv             ║
-╚══════════════════════════════════════════════╝`);
-      });
+    const origin = `${req.protocol}://${req.get("host")}`;
+    const lines = rows.map((row) => {
+      const p = normalizeProduct(row);
+      const m = PRODUCT_METADATA[p.id] || {};
+      const stockValues = Object.values(p.stock || {});
+      const hasStock = stockValues.some((qty) => Number(qty) > 0);
+      const basePrice = Number(p.price || 0).toFixed(2);
+      const isOnSale = p.oldPrice && Number(p.oldPrice) > Number(p.price);
+      const description = p.description || `${p.name} - Winner Store`;
+      const productUrl = `${origin}/#producto-${encodeURIComponent(p.id)}`;
 
-      http.createServer(redirectApp).listen(HTTP_PORT, () => {
-        console.log(`   ↳ HTTP redirect activo en puerto ${HTTP_PORT}`);
-      });
-
-    } catch (err) {
-      console.error("❌ Error cargando certificados SSL/TLS:", err.message);
-      startHttp();
-    }
-  } else {
-    startHttp();
-  }
-}       p.name,
+      return [
+        p.id,
+        p.name,
         description,
         productUrl,
         p.img || "",
@@ -1966,9 +2018,7 @@ app.post("/api/refresh-token", (req, res) => {
         DEFAULT_SHIPPING,
         m.customLabel0 || (isOnSale ? "Oferta" : "Catalogo"),
         m.customLabel1 || (p.cat ? p.cat.toUpperCase() : "GENERAL"),
-      ]
-        .map(esc)
-        .join(",");
+      ].map(esc).join(",");
     });
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -2002,58 +2052,8 @@ app.use((err, req, res, _next) => {
 });
 
 /* ── Arrancar servidor ───────────────────────────────────── */
-const HTTPS_PORT = process.env.HTTPS_PORT || 443;
-const HTTP_PORT = process.env.HTTP_PORT || 80;
-
 function startServer() {
-  // Deshabilitado temporalmente: forzamos HTTP para que admin funcione sin problemas de SSL
-  // (evita que intente leer certificados y/o redirect a https)
   startHttp();
-  return;
-
-  if (IS_PRODUCTION && process.env.CERT_PATH && process.env.KEY_PATH) {
-    // PRODUCCIÓN: Usar HTTPS con redirección HTTP → HTTPS
-
-    try {
-      const options = {
-        key: fs.readFileSync(process.env.KEY_PATH),
-        cert: fs.readFileSync(process.env.CERT_PATH),
-      };
-
-      // Crear aplicación para redireccionar HTTP → HTTPS
-      const redirectApp = express();
-      redirectApp.use((req, res) => {
-        res.redirect(`https://${req.hostname}${req.originalUrl}`);
-      });
-
-      // Iniciar servidor HTTPS
-      https.createServer(options, app).listen(HTTPS_PORT, () => {
-        console.log(`
-╔══════════════════════════════════════════════╗
-║   WINNER STORE  —  Servidor v2.0 (HTTPS)    ║
-╠══════════════════════════════════════════════╣
-║   🔒  https://winner.com                     ║
-║   🔑  Admin: admin / winner2026              ║
-║   📦  API:   /api/products                  ║
-║   📊  Stats: /api/stats                     ║
-║   🛒  Feed:  /merchant-feed.csv             ║
-║   🌐  HTTP:  puerto ${HTTP_PORT} → HTTPS     ║
-╚══════════════════════════════════════════════╝`);
-      });
-
-      // Iniciar servidor HTTP (redirige a HTTPS)
-      http.createServer(redirectApp).listen(HTTP_PORT, () => {
-        console.log(`   ↳ HTTP redirect activo en puerto ${HTTP_PORT}`);
-      });
-    } catch (err) {
-      console.error("❌ Error cargando certificados SSL/TLS:", err.message);
-      console.log("ℹ️  Usando HTTP como alternativa");
-      startHttp();
-    }
-  } else {
-    // DESARROLLO: Usar HTTP simple
-    startHttp();
-  }
 }
 
 function startHttp() {
@@ -2067,6 +2067,7 @@ function startHttp() {
 ║   📦  API:   /api/products                  ║
 ║   📊  Stats: /api/stats                     ║
 ║   🛒  Feed:  /merchant-feed.csv             ║
+║   🔓  SSL/HTTPS deshabilitado               ║
 ╚══════════════════════════════════════════════╝`);
   });
 }

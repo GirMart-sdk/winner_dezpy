@@ -60,7 +60,7 @@ const LS = {
   set: (k, v) => {
     try {
       localStorage.setItem("w_" + k, JSON.stringify(v));
-    } catch { }
+    } catch {}
   },
 };
 
@@ -130,7 +130,7 @@ async function fetchInventory() {
     renderInventory();
     renderPOSProducts();
     updateInventoryInsightBadge(); // Conectar con Smart Insights
-    renderSmartInsights();         // Actualizar dashboard si aplica
+    renderSmartInsights(); // Actualizar dashboard si aplica
   } catch (e) {
     console.error("❌ Error cargando inventario:", e.message);
     inventory = [];
@@ -607,6 +607,13 @@ const nowStr = () => new Date().toISOString();
 const todayStr = () => new Date().toISOString().split("T")[0];
 const genId = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+const esc = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 
 function fmtDate(iso) {
   try {
@@ -624,7 +631,8 @@ function fmtDate(iso) {
 
 function stockStatus(t) {
   if (t === 0) return { label: "Sin stock", cls: "badge-out", tbcls: "s-out" };
-  if (t <= 100) return { label: "Stock bajo", cls: "badge-low", tbcls: "s-low" };
+  if (t <= 100)
+    return { label: "Stock bajo", cls: "badge-low", tbcls: "s-low" };
   return { label: "Disponible", cls: "badge-ok", tbcls: "s-ok" };
 }
 
@@ -670,26 +678,21 @@ if (typeof document !== "undefined") {
 ══════════════════════════════════════════════════════════ */
 function verifySession() {
   if (!session) return false;
-  return !!session.user;
+  return !!session.user && !!session.token;
 }
 
 function doLogin() {
   const u = $("loginUser").value.trim() || "admin";
   const p = $("loginPass").value;
 
-  // Si no ingresa contraseña, usar API_KEY directo
   if (!p) {
-    session = {
-      user: u,
-      role: "Admin",
-      avatar: (u || "")[0]?.toUpperCase() || "A",
-    };
-    LS.set("session", session);
-    showApp();
+    const err = $("loginError");
+    err.textContent = "Ingresa la contraseña para acceder al panel";
+    err.style.display = "block";
+    setTimeout(() => (err.style.display = "none"), 3000);
     return;
   }
 
-  // Si pone contraseña, validar en servidor
   fetch(`${API_URL}/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -708,25 +711,23 @@ function doLogin() {
         user: data.user,
         role: data.role || "Administrador",
         avatar: (data.user || "")[0]?.toUpperCase() || "A",
-        token: data.token
+        token: data.token,
       };
       LS.set("session", session);
       showApp();
     })
-    .catch(() => {
-      // Si falla conexión, permitir acceso con API_KEY
-      session = {
-        user: u,
-        role: "Admin",
-        avatar: (u || "")[0]?.toUpperCase() || "A",
-      };
-      LS.set("session", session);
-      showApp();
+    .catch((e) => {
+      const err = $("loginError");
+      err.textContent = "No se pudo conectar con el servidor local";
+      err.style.display = "block";
+      console.error("Login error:", e);
+      setTimeout(() => (err.style.display = "none"), 3000);
     });
 }
 
 function doLogout() {
   session = null;
+  AUTH_TOKEN = null;
   LS.set("session", null);
   stopScanner();
   $("mainApp").style.display = "none";
@@ -748,6 +749,7 @@ function showApp() {
     AUTH_TOKEN = session.token;
     $("sidebarUser").querySelector(".su-name").textContent = session.role;
   }
+  bindSidebarNavigation();
   refreshAll();
   navigateTo("dashboard");
 }
@@ -758,10 +760,10 @@ if (typeof window !== "undefined")
     if (verifySession()) {
       showApp();
     } else {
-      // Auto-login sin credenciales usando solo API_KEY
-      session = { user: "Administrador", role: "Admin", avatar: "A" };
-      LS.set("session", session);
-      showApp();
+      session = null;
+      LS.set("session", null);
+      $("mainApp").style.display = "none";
+      $("loginScreen").style.display = "flex";
     }
     // Enter key on login
     ["loginUser", "loginPass"].forEach((id) => {
@@ -770,6 +772,29 @@ if (typeof window !== "undefined")
       });
     });
   });
+
+function renderSalesStats() {
+  const totalRevenue = salesLog.reduce(
+    (sum, sale) => sum + Number(sale.total || 0),
+    0,
+  );
+  const totalOrders = salesLog.length;
+  const avgTicket = totalOrders ? Math.round(totalRevenue / totalOrders) : 0;
+
+  const setText = (id, value) => {
+    const el = $(id);
+    if (el) el.textContent = value;
+  };
+
+  setText("kpiTotalRevenue", fmt(totalRevenue));
+  setText("kpiOrders", totalOrders);
+  setText("kpiAvgTicket", fmt(avgTicket));
+  setText("sv1", fmt(totalRevenue));
+  setText("sv2", totalOrders);
+  setText("sv3", fmt(avgTicket));
+
+  renderPayDistCards();
+}
 
 /* ══════════════════════════════════════════════════════════
    NAVIGATION
@@ -821,12 +846,25 @@ function navigateTo(page) {
     loadVIPCustomersData();
   } else if (page === "reorder") {
     loadReorderData();
-    if (page === "forecast") {
-      loadForecastData();
-    }
+  } else if (page === "forecast") {
+    loadForecastData();
+  }
+}
+
+function bindSidebarNavigation() {
+  if (document.body.dataset.sidebarDelegated !== "true") {
+    document.body.dataset.sidebarDelegated = "true";
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest(".snav-item");
+      if (!btn || !btn.dataset.page) return;
+      e.preventDefault();
+      navigateTo(btn.dataset.page);
+    });
   }
 
   document.querySelectorAll(".snav-item").forEach((btn) => {
+    if (btn.dataset.bound === "true") return;
+    btn.dataset.bound = "true";
     btn.addEventListener("click", () => navigateTo(btn.dataset.page));
   });
 }
@@ -866,18 +904,25 @@ function renderDashboard() {
   // Recent sales
   const rl = $("dashRecentSales");
   if (!salesLog.length) {
-    rl.innerHTML = '<p style="color:var(--gray-text);font-size:13px;text-align:center;padding:20px">Sin ventas aún</p>';
+    rl.innerHTML =
+      '<p style="color:var(--gray-text);font-size:13px;text-align:center;padding:20px">Sin ventas aún</p>';
   } else {
     rl.innerHTML = salesLog
       .slice(0, 5)
-      .map(s => `
+      .map(
+        (s) => `
       <div class="recent-item">
         <div>
-          <div>${s.items.map(i => i.name).join(", ").slice(0, 40)}…</div>
+          <div>${s.items
+            .map((i) => i.name)
+            .join(", ")
+            .slice(0, 40)}…</div>
           <div class="recent-meta">${fmtDate(s.timestamp)} · Tienda Física</div>
         </div>
         <div class="recent-amount">${fmt(s.total)}</div>
-      </div>`).join("");
+      </div>`,
+      )
+      .join("");
   }
 
   renderPayDistCards();
@@ -892,7 +937,7 @@ function renderPayDistCards() {
   const totalRevenue = salesLog.reduce((s, x) => s + x.total, 0);
   const methodStats = {};
 
-  salesLog.forEach(s => {
+  salesLog.forEach((s) => {
     if (!methodStats[s.method]) {
       methodStats[s.method] = { count: 0, total: 0 };
     }
@@ -902,28 +947,30 @@ function renderPayDistCards() {
 
   const methods = Object.keys(methodStats);
   if (!methods.length) {
-    container.innerHTML = '<p style="color:var(--gray-text);grid-column:1/-1;text-align:center">No hay datos de transacciones</p>';
+    container.innerHTML =
+      '<p style="color:var(--gray-text);grid-column:1/-1;text-align:center">No hay datos de transacciones</p>';
     return;
   }
 
   const iconMap = {
-    'efectivo': '💵',
-    'nequi': '📱',
-    'daviplata': '📱',
-    'tarjeta': '💳',
-    'pse': '🏦',
-    'visa': '💳',
-    'mastercard': '💳',
-    'paypal': '🌎',
-    'stripe': '🌎'
+    efectivo: "💵",
+    nequi: "📱",
+    daviplata: "📱",
+    tarjeta: "💳",
+    pse: "🏦",
+    visa: "💳",
+    mastercard: "💳",
+    paypal: "🌎",
+    stripe: "🌎",
   };
 
-  container.innerHTML = methods.map(m => {
-    const stats = methodStats[m];
-    const percent = totalRevenue > 0 ? (stats.total / totalRevenue) * 100 : 0;
-    const icon = iconMap[m.toLowerCase()] || '💰';
+  container.innerHTML = methods
+    .map((m) => {
+      const stats = methodStats[m];
+      const percent = totalRevenue > 0 ? (stats.total / totalRevenue) * 100 : 0;
+      const icon = iconMap[m.toLowerCase()] || "💰";
 
-    return `
+      return `
       <div class="pay-dist-card">
         <div class="pdc-header">
           <div class="pdc-icon">${icon}</div>
@@ -943,7 +990,8 @@ function renderPayDistCards() {
         </div>
       </div>
     `;
-  }).join("");
+    })
+    .join("");
 }
 
 function renderSmartInsights() {
@@ -953,48 +1001,57 @@ function renderSmartInsights() {
   const insights = [];
 
   // 1. Exceso de Stock (> 60 unidades totales)
-  const overstocked = inventory.filter(p => totalStock(p) > 60).slice(0, 2);
-  overstocked.forEach(p => {
+  const overstocked = inventory.filter((p) => totalStock(p) > 60).slice(0, 2);
+  overstocked.forEach((p) => {
     insights.push({
-      type: 'orange',
-      icon: '📦',
-      title: 'Exceso de Stock',
+      type: "orange",
+      icon: "📦",
+      title: "Exceso de Stock",
       desc: `${p.name} tiene ${totalStock(p)} uds. Sugerencia: 20% OFF para rotar inventario.`,
-      tag: 'Liquidación'
+      tag: "Liquidación",
     });
   });
 
   // 2. Baja Rotación (No aparece en salesLog reciente)
-  const soldNames = new Set(salesLog.flatMap(s => s.items.map(i => i.name)));
-  const slowMovers = inventory.filter(p => !soldNames.has(p.name)).slice(0, 2);
-  slowMovers.forEach(p => {
+  const soldNames = new Set(
+    salesLog.flatMap((s) => s.items.map((i) => i.name)),
+  );
+  const slowMovers = inventory
+    .filter((p) => !soldNames.has(p.name))
+    .slice(0, 2);
+  slowMovers.forEach((p) => {
     insights.push({
-      type: 'blue',
-      icon: '📉',
-      title: 'Baja Rotación',
+      type: "blue",
+      icon: "📉",
+      title: "Baja Rotación",
       desc: `${p.name} no registra ventas recientes. Impulsar con oferta Black Friday.`,
-      tag: 'Impulsar'
+      tag: "Impulsar",
     });
   });
 
   // 3. Alta Rentabilidad (Precio > 2.8 * Costo)
-  const highMargin = inventory.filter(p => p.price > (p.cost * 2.8)).slice(0, 1);
-  highMargin.forEach(p => {
+  const highMargin = inventory
+    .filter((p) => p.price > p.cost * 2.8)
+    .slice(0, 1);
+  highMargin.forEach((p) => {
     insights.push({
-      type: 'green',
-      icon: '💰',
-      title: 'Margen Alto',
+      type: "green",
+      icon: "💰",
+      title: "Margen Alto",
       desc: `${p.name} permite un descuento del 40% manteniendo rentabilidad.`,
-      tag: 'Rentable'
+      tag: "Rentable",
     });
   });
 
   if (insights.length === 0) {
-    container.innerHTML = '<p style="color:var(--gray-text);font-size:11px;text-align:center;padding:20px">Analizando datos para generar sugerencias...</p>';
+    container.innerHTML =
+      '<p style="color:var(--gray-text);font-size:11px;text-align:center;padding:20px">Analizando datos para generar sugerencias...</p>';
     return;
   }
 
-  container.innerHTML = insights.map(i => `
+  container.innerHTML = insights
+    .map(
+      (i) => `
     <div class="insight-item" onclick="navigateTo('inventory'); setTimeout(() => { _insightFilterActive = true; renderInventory(); }, 100);" style="cursor:pointer">
       <div class="insight-icon ${i.type}">${i.icon}</div>
       <div class="insight-info">
@@ -1003,7 +1060,9 @@ function renderSmartInsights() {
       </div>
       <div class="insight-tag ${i.type}">${i.tag}</div>
     </div>
-  `).join("");
+  `,
+    )
+    .join("");
 }
 
 let payChartInstance = null;
@@ -1086,58 +1145,78 @@ function filterByInsights() {
   _insightFilterActive = !_insightFilterActive;
   const btn = document.querySelector('button[onclick="filterByInsights()"]');
   if (btn) {
-    btn.style.background = _insightFilterActive ? "gold" : "rgba(255, 215, 0, 0.1)";
+    btn.style.background = _insightFilterActive
+      ? "gold"
+      : "rgba(255, 215, 0, 0.1)";
     btn.style.color = _insightFilterActive ? "#000" : "gold";
   }
   renderInventory();
 }
 
-async function applyAllInsights() {
-  // Primero filtramos la vista para que el usuario vea qué se va a cambiar
-  _insightFilterActive = true;
-  renderInventory();
+// ═══════════════════════════════════════════════════════════
+// SISTEMA DE DESCUENTOS AUTOMÁTICOS CON SMS Y ALERTAS
+// ═══════════════════════════════════════════════════════════
 
-  const targets = inventory.filter(p => {
-    const tStock = totalStock(p);
-    const hasSales = salesLog.some(s => s.items.some(it => String(it.id) === String(p.id)));
-    const highMargin = p.cost > 0 && (p.price > p.cost * 2.8);
-    return (tStock > 60 || !hasSales || highMargin) && !p.on_sale;
+async function autoApplyDiscounts() {
+  // Identificar productos con baja rotación (sin ventas)
+  const slowMovers = inventory.filter((p) => {
+    const hasSales = salesLog.some((s) =>
+      s.items.some((it) => String(it.id) === String(p.id)),
+    );
+    return !hasSales && !p.on_sale;
   });
 
-  if (targets.length === 0) {
-    toast("✨ No hay nuevas sugerencias para aplicar ahora");
-    _insightFilterActive = false;
-    renderInventory();
-    return;
-  }
-
-  // Pequeña pausa para que el ojo humano vea el filtro
-  await new Promise(r => setTimeout(r, 300));
-
-  if (!confirm(`⚡ Smart Insights detectó ${targets.length} productos con rotación lenta o margen alto. ¿Aplicar ofertas automáticas ahora?`)) {
-    // Si cancela, dejamos el filtro puesto por si quiere editar manualmente
-    toast("💡 Filtro activado. Puedes editar cada producto manualmente.");
-    return;
-  }
-
-  toast(`⏳ Procesando ${targets.length} productos...`);
-
-  let updatedCount = 0;
-  for (const p of targets) {
+  // Identificar productos con sobrestock (>60 unidades)
+  const overstocked = inventory.filter((p) => {
     const tStock = totalStock(p);
-    const hasSales = salesLog.some(s => s.items.some(it => String(it.id) === String(p.id)));
+    return tStock > 60 && !p.on_sale;
+  });
 
-    let recPrice = p.price;
-    if (tStock > 60) recPrice = Math.round(p.price * 0.8);
-    else if (!hasSales) recPrice = Math.round(p.price * 0.7);
-    else if (p.price > p.cost * 2.8) recPrice = Math.round(p.price * 0.6);
+  // Combinar sin duplicados
+  const targets = [...new Set([...slowMovers, ...overstocked])];
+
+  if (targets.length === 0) {
+    toast("✨ Sin productos para descuentos automáticos");
+    return;
+  }
+
+  if (
+    !confirm(
+      `🔄 Aplicar descuentos automáticos a ${targets.length} productos?\\n\\n📉 Baja rotación: -30%\\n📦 Sobrestock: -20%`,
+    )
+  ) {
+    toast("❌ Cancelado");
+    return;
+  }
+
+  toast(`⏳ Aplicando descuentos a ${targets.length} productos...`);
+  let slowCount = 0,
+    overCount = 0;
+
+  for (const p of targets) {
+    let discount = 0.8; // 20% default
+    let reason = "📦 Sobrestock";
+    let descuento_porcentaje = "20%";
+
+    if (slowMovers.includes(p)) {
+      discount = 0.7; // 30% para baja rotación
+      reason = "📉 Baja Rotación";
+      descuento_porcentaje = "30%";
+      slowCount++;
+    } else if (overstocked.includes(p)) {
+      overCount++;
+    }
+
+    const precioOriginal = p.price;
+    const precioNuevo = Math.round(p.price * discount);
+    const ahorros = precioOriginal - precioNuevo;
 
     const updatedProduct = {
       ...p,
       category: p.cat,
       image: p.img,
-      promo_price: recPrice,
-      on_sale: true
+      promo_price: precioNuevo,
+      on_sale: true,
     };
 
     try {
@@ -1146,23 +1225,175 @@ async function applyAllInsights() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatedProduct),
       });
-      updatedCount++;
+
+      // Enviar SMS con alerta en tiempo real
+      await sendSMSAlert({
+        type: "discount_applied",
+        product: p.name,
+        reason: reason,
+        discount: descuento_porcentaje,
+        original: precioOriginal,
+        promo: precioNuevo,
+        savings: ahorros,
+        timestamp: new Date().toLocaleString(),
+      });
     } catch (e) {
-      console.error(`Error actualizando ${p.name}:`, e);
+      console.error(`Error: ${p.name}`, e);
     }
   }
 
-  _insightFilterActive = false;
   fetchInventory();
-  toast(`✓ ¡Éxito! ${updatedCount} productos actualizados con precios inteligentes`);
+  toast(
+    `✅ Descuentos aplicados:\\n📉 ${slowCount} baja rotación (-30%)\\n📦 ${overCount} sobrestock (-20%)`,
+  );
+}
+
+// Sistema de notificaciones SMS y alertas
+async function sendSMSAlert(alertData) {
+  const smsMessages = {
+    discount_applied: `🏷️ DESCUENTO APLICADO\\n${alertData.product}\\n💰 ${alertData.original} → ${alertData.promo} (${alertData.discount})\\n💾 Ahorras: $${alertData.savings}\\n${alertData.reason}`,
+
+    stock_low: `⚠️ STOCK BAJO\\n${alertData.product}\\n📦 Quedan: ${alertData.stock} unidades\\n🔴 Nivel: ${alertData.level}`,
+
+    stock_critical: `🚨 STOCK CRÍTICO\\n${alertData.product}\\n⛔ AGOTADO!\\n🆘 ¡REABASTECER URGENTE!`,
+
+    stock_alert: `📦 ALERTA DE INVENTARIO\\n${alertData.product}\\n${alertData.level} | Stock: ${alertData.stock} unidades\\n⏰ ${alertData.timestamp}`,
+  };
+
+  const message = smsMessages[alertData.type] || "🔔 Alerta del sistema";
+
+  try {
+    // Guardar en historial de alertas (localStorage)
+    const alerts = JSON.parse(localStorage.getItem("sms_alerts") || "[]");
+    const newAlert = {
+      id: Date.now(),
+      timestamp: alertData.timestamp || new Date().toLocaleString(),
+      message: message,
+      type: alertData.type,
+      product: alertData.product || "General",
+      read: false,
+      priority:
+        alertData.type === "stock_critical"
+          ? "high"
+          : alertData.type.includes("applied")
+            ? "normal"
+            : "medium",
+    };
+
+    alerts.push(newAlert);
+    localStorage.setItem("sms_alerts", JSON.stringify(alerts.slice(-100))); // Guardar últimas 100
+
+    // INTEGRACIÓN SMS EN PRODUCCIÓN (descomentar cuando esté configurado)
+    // Opciones: Twilio, AWS SNS, Firebase Cloud Messaging, etc.
+    /*
+    if (window.SMS_ENABLED) {
+      await apiFetch(`${API_URL}/sms/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: getStorePhoneNumber(),
+          message: message,
+          priority: newAlert.priority,
+          type: alertData.type
+        }),
+      });
+    }
+    */
+
+    // Mostrar notificación en el dashboard
+    displayRealTimeAlert(newAlert);
+
+    console.log(`📱 SMS Alert [${alertData.type}]:`, message);
+  } catch (e) {
+    console.error("SMS Error:", e);
+  }
+}
+
+// Mostrar alertas en tiempo real en el dashboard
+function displayRealTimeAlert(alertData) {
+  const alertsContainer = document.createElement("div");
+  alertsContainer.className = "real-time-alert";
+  alertsContainer.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, rgba(51, 51, 51, 0.95) 0%, rgba(35, 35, 35, 0.95) 100%);
+    border-left: 4px solid ${alertData.priority === "high" ? "#ff3b30" : alertData.priority === "medium" ? "#ff9500" : "#34c759"};
+    color: #ffffff;
+    padding: 16px 20px;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    z-index: 99999;
+    max-width: 350px;
+    animation: slideIn 0.3s ease-out;
+    backdrop-filter: blur(10px);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto;
+  `;
+
+  const icon =
+    alertData.priority === "high"
+      ? "🚨"
+      : alertData.priority === "medium"
+        ? "⚠️"
+        : "✅";
+
+  alertsContainer.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: start; gap: 12px;">
+      <div style="font-size: 20px; line-height: 1;">${icon}</div>
+      <div style="flex: 1; font-size: 13px; line-height: 1.4;">
+        <strong style="display: block; margin-bottom: 4px; font-size: 14px;">${alertData.product}</strong>
+        <div style="color: rgba(255,255,255,0.8); white-space: pre-wrap; word-break: break-word;">${alertData.message.split("\\n").slice(1).join("\\n")}</div>
+        <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 8px;">${alertData.timestamp}</div>
+      </div>
+      <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; color: rgba(255,255,255,0.5); cursor: pointer; font-size: 18px; padding: 0; line-height: 1;">✕</button>
+    </div>
+  `;
+
+  document.body.appendChild(alertsContainer);
+
+  // Auto-remover después de 8 segundos
+  setTimeout(() => {
+    alertsContainer.style.animation = "slideOut 0.3s ease-out";
+    setTimeout(() => alertsContainer.remove(), 300);
+  }, 8000);
+}
+
+// Obtener número de teléfono de la tienda (configurar en .env)
+function getStorePhoneNumber() {
+  return localStorage.getItem("store_phone") || "+573001234567";
+}
+
+// Configurar número de teléfono para alertas
+function setStorePhoneNumber(phone) {
+  localStorage.setItem("store_phone", phone);
+  toast(`📱 Teléfono configurado: ${phone}`);
+}
+
+// Ver historial de alertas
+function showAlertsHistory() {
+  const alerts = JSON.parse(localStorage.getItem("sms_alerts") || "[]");
+  if (alerts.length === 0) {
+    toast("Sin alertas registradas");
+    return;
+  }
+
+  console.log("📊 Historial de Alertas:", alerts);
+  toast(`📋 ${alerts.length} alertas en historial (ver consola)`);
+}
+
+// Mantener compatibilidad con función antigua
+async function applyAllInsights() {
+  toast("💡 Usa '🔄 AUTO-DESCUENTOS' para aplicar cambios automáticamente");
 }
 
 function updateInventoryInsightBadge() {
   let count = 0;
-  inventory.forEach(p => {
+  inventory.forEach((p) => {
     const tStock = totalStock(p);
-    const hasSales = salesLog.some(s => s.items.some(it => String(it.id) === String(p.id)));
-    const highMargin = p.cost > 0 && (p.price > p.cost * 2.8);
+    const hasSales = salesLog.some((s) =>
+      s.items.some((it) => String(it.id) === String(p.id)),
+    );
+    const highMargin = p.cost > 0 && p.price > p.cost * 2.8;
     if ((tStock > 60 || !hasSales || highMargin) && !p.on_sale) {
       count++;
     }
@@ -1183,10 +1414,12 @@ function renderInventory() {
   });
 
   if (_insightFilterActive) {
-    filtered = filtered.filter(p => {
+    filtered = filtered.filter((p) => {
       const tStock = totalStock(p);
-      const hasSales = salesLog.some(s => s.items.some(it => String(it.id) === String(p.id)));
-      const highMargin = p.cost > 0 && (p.price > p.cost * 2.8);
+      const hasSales = salesLog.some((s) =>
+        s.items.some((it) => String(it.id) === String(p.id)),
+      );
+      const highMargin = p.cost > 0 && p.price > p.cost * 2.8;
       return (tStock > 60 || !hasSales || highMargin) && !p.on_sale;
     });
   }
@@ -1220,19 +1453,21 @@ function renderInventory() {
       const sizesBadges =
         sizes.length > 0
           ? sizes
-            .map((s) => {
-              const qty = p.stock[s] || 0;
-              const cls = qty === 0 ? "out" : qty <= 3 ? "low" : "ok";
-              return `<span class="inv-size-badge ${cls}">${s}:${qty}</span>`;
-            })
-            .join("")
+              .map((s) => {
+                const qty = p.stock[s] || 0;
+                const cls = qty === 0 ? "out" : qty <= 3 ? "low" : "ok";
+                return `<span class="inv-size-badge ${cls}">${s}:${qty}</span>`;
+              })
+              .join("")
           : '<span style="color:var(--gray-text);font-size:12px">Sin talla</span>';
 
       const isOnSale = p.on_sale && p.promo_price > 0;
       const displayPrice = isOnSale
         ? `<span class="price-original">${fmt(p.price)}</span><span class="price-promo">${fmt(p.promo_price)}</span>`
         : fmt(p.price);
-      const promoBadge = isOnSale ? `<span class="promo-badge">SALE %</span>` : "";
+      const promoBadge = isOnSale
+        ? `<span class="promo-badge">SALE %</span>`
+        : "";
 
       return `
       <div class="inv-card" data-product-id="${p.id}">
@@ -1305,11 +1540,13 @@ async function deleteProduct(id) {
 ══════════════════════════════════════════════════════════ */
 function applyRecommendedPrice() {
   const id = $("editProductId").value;
-  const p = inventory.find(x => String(x.id) === String(id));
+  const p = inventory.find((x) => String(x.id) === String(id));
   if (!p) return;
 
   const tStock = totalStock(p);
-  const hasSales = salesLog.some(s => s.items.some(it => String(it.id) === String(p.id)));
+  const hasSales = salesLog.some((s) =>
+    s.items.some((it) => String(it.id) === String(p.id)),
+  );
 
   let recPrice = p.price;
   if (tStock > 60) recPrice = Math.round(p.price * 0.8);
@@ -1327,7 +1564,7 @@ function openProductModal(id = null) {
     ? "Editar Producto"
     : "Nuevo Producto";
 
-  const promoSection = document.querySelector('.promo-section');
+  const promoSection = document.querySelector(".promo-section");
 
   if (id) {
     const p = inventory.find((x) => String(x.id) === String(id));
@@ -1343,8 +1580,10 @@ function openProductModal(id = null) {
 
     // Lógica alineada con SMART INSIGHTS
     const tStock = totalStock(p);
-    const hasSales = salesLog.some(s => s.items.some(it => String(it.id) === String(p.id)));
-    const highMargin = p.cost > 0 && (p.price > p.cost * 2.8);
+    const hasSales = salesLog.some((s) =>
+      s.items.some((it) => String(it.id) === String(p.id)),
+    );
+    const highMargin = p.cost > 0 && p.price > p.cost * 2.8;
 
     const isOverstocked = tStock > 60;
     const isSlowMover = !hasSales;
@@ -1353,36 +1592,41 @@ function openProductModal(id = null) {
     if (isOverstocked || isSlowMover || highMargin || p.on_sale) {
       if (promoSection) {
         promoSection.style.display = "flex";
-        const noteId = 'promo-note';
+        const noteId = "promo-note";
         let note = $(noteId);
         if (!note) {
-          note = document.createElement('div');
+          note = document.createElement("div");
           note.id = noteId;
-          note.style = "font-size:10px; color:var(--accent); margin-bottom:10px; font-weight:600; text-transform:uppercase; letter-spacing:1px; display:flex; align-items:center; gap:5px;";
+          note.style =
+            "font-size:10px; color:var(--accent); margin-bottom:10px; font-weight:600; text-transform:uppercase; letter-spacing:1px; display:flex; align-items:center; gap:5px;";
           promoSection.parentNode.insertBefore(note, promoSection);
         }
 
         let reason = "🔥 Oferta Activa";
-        if (isOverstocked) reason = "📦 Smart Insight: Sugerencia de Liquidación (Exceso de Stock)";
-        else if (isSlowMover) reason = "📉 Smart Insight: Sugerencia de Impulso (Baja Rotación)";
-        else if (highMargin) reason = "💰 Smart Insight: Oferta Rentable (Margen Alto)";
+        if (isOverstocked)
+          reason =
+            "📦 Smart Insight: Sugerencia de Liquidación (Exceso de Stock)";
+        else if (isSlowMover)
+          reason = "📉 Smart Insight: Sugerencia de Impulso (Baja Rotación)";
+        else if (highMargin)
+          reason = "💰 Smart Insight: Oferta Rentable (Margen Alto)";
 
         note.innerHTML = `<span>💡</span> ${reason} <button onclick="applyRecommendedPrice()" class="btn-ghost" style="font-size:9px; padding:2px 5px; margin-left:10px; border-color:var(--accent); color:var(--accent)">Aplicar Sugerencia</button>`;
       }
     } else {
       if (promoSection) promoSection.style.display = "none";
-      const note = $('promo-note');
+      const note = $("promo-note");
       if (note) note.remove();
     }
 
     // Tab Rendimiento
     let unitsSold = 0;
     let revenue = 0;
-    salesLog.forEach(s => {
-      s.items.forEach(it => {
+    salesLog.forEach((s) => {
+      s.items.forEach((it) => {
         if (String(it.id) === String(p.id)) {
           unitsSold += it.qty;
-          revenue += (it.price * it.qty);
+          revenue += it.price * it.qty;
         }
       });
     });
@@ -1394,7 +1638,7 @@ function openProductModal(id = null) {
     setTimeout(() => renderQRPreview(p), 100);
   } else {
     if (promoSection) promoSection.style.display = "flex";
-    const note = $('promo-note');
+    const note = $("promo-note");
     if (note) note.remove();
 
     ["pName", "pPrice", "pCost", "pSku", "pImg"].forEach(
@@ -1871,15 +2115,16 @@ function printSingleQR() {
   win.document
     .write(`<html><body style="text-align:center;padding:40px;font-family:sans-serif">
     <h2 style="font-size:24px;letter-spacing:4px">WINNER</h2>
-    ${qrCurrentProduct.on_sale ? `<div style="background:#ff4757; color:white; padding:5px; font-weight:800; border-radius:4px; margin-bottom:10px;">¡OFERTA!</div>` : ''}
+    ${qrCurrentProduct.on_sale ? `<div style="background:#ff4757; color:white; padding:5px; font-weight:800; border-radius:4px; margin-bottom:10px;">¡OFERTA!</div>` : ""}
     <div style="margin:20px auto;display:inline-block">${img.outerHTML}</div>
     <p style="font-size:14px;font-weight:700">${qrCurrentProduct.sku}</p>
     <p style="font-size:18px">${qrCurrentProduct.name}</p>
-    ${qrCurrentProduct.on_sale ?
-        `<p style="font-size:14px; text-decoration:line-through; color:#999; margin:0">$${qrCurrentProduct.price.toLocaleString("es-CO")}</p>
-       <p style="font-size:26px; font-weight:900; color:#ff4757; margin:5px 0">$${qrCurrentProduct.promo_price.toLocaleString("es-CO")}</p>` :
-        `<p style="font-size:22px; font-weight:900">$${qrCurrentProduct.price.toLocaleString("es-CO")}</p>`
-      }
+    ${
+      qrCurrentProduct.on_sale
+        ? `<p style="font-size:14px; text-decoration:line-through; color:#999; margin:0">$${qrCurrentProduct.price.toLocaleString("es-CO")}</p>
+       <p style="font-size:26px; font-weight:900; color:#ff4757; margin:5px 0">$${qrCurrentProduct.promo_price.toLocaleString("es-CO")}</p>`
+        : `<p style="font-size:22px; font-weight:900">$${qrCurrentProduct.price.toLocaleString("es-CO")}</p>`
+    }
   </body></html>`);
   win.document.close();
   win.print();
@@ -1933,16 +2178,16 @@ function printAllQRs() {
     ${items}
     <script>
       ${inventory
-      .map(
-        (p) => `
+        .map(
+          (p) => `
         new QRCode(document.getElementById("qr_${p.id}"),{
           text:${JSON.stringify(buildQRPayload(p))},
           width:150,height:150,
           colorDark:"#000",colorLight:"#fff"
         });
       `,
-      )
-      .join("")}
+        )
+        .join("")}
       setTimeout(()=>window.print(),1200);
     <\/script></body></html>`);
   win.document.close();
@@ -2151,16 +2396,14 @@ function openPOSSizeSelector(product) {
     .join("");
 
   setTimeout(() => {
-    sizeGrid
-      .querySelectorAll(".pos-size-btn:not(:disabled)")
-      .forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const pId = btn.dataset.productId;
-          const sz = btn.dataset.size;
-          addToPOSCart(pId, sz);
-          closePOSSizeModal();
-        });
+    sizeGrid.querySelectorAll(".pos-size-btn:not(:disabled)").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const pId = btn.dataset.productId;
+        const sz = btn.dataset.size;
+        addToPOSCart(pId, sz);
+        closePOSSizeModal();
       });
+    });
   }, 0);
 
   // Mostrar overlay/modal
@@ -2312,7 +2555,7 @@ function addToPOSCart(productOrId, size = "M") {
       posCart.push({
         id: p.id,
         name: p.name,
-        price: (p.on_sale && p.promo_price > 0) ? p.promo_price : p.price,
+        price: p.on_sale && p.promo_price > 0 ? p.promo_price : p.price,
         img: p.img || "",
         size: size,
         qty: 1,
@@ -2497,6 +2740,7 @@ async function confirmPOSSale() {
     const total = Math.round(sub * (1 - disc / 100));
 
     const items = posCart.map((i) => ({
+      id: i.id,
       name: i.name,
       qty: i.qty,
       price: i.price,
@@ -2518,37 +2762,20 @@ async function confirmPOSSale() {
     };
 
     try {
-      await apiFetch(`${API_URL}/sales`, {
+      const res = await apiFetch(`${API_URL}/sales`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(sale),
       });
-      fetchSalesLog();
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || `HTTP ${res.status}`);
+      }
+      await fetchSalesLog();
     } catch (e) {
       console.error("Error saving POS sale:", e);
-    }
-
-    // Sync stock to backend
-    for (const item of posCart) {
-      const p = inventory.find((x) => String(x.id) === String(item.id));
-      if (p) {
-        let rem = item.qty;
-        for (const s of SIZES) {
-          if (rem <= 0) break;
-          const take = Math.min(p.stock[s] || 0, rem);
-          p.stock[s] = (p.stock[s] || 0) - take;
-          rem -= take;
-        }
-        try {
-          await apiFetch(`${API_URL}/products`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...p, category: p.cat, image: p.img }),
-          });
-        } catch (e) {
-          console.error("Error syncing stock:", e);
-        }
-      }
+      toast(`❌ No se pudo guardar la venta: ${e.message}`);
+      return;
     }
 
     toast(`✓ Venta confirmada: ${fmt(total)} — ${posSelectedMethod}`);
@@ -2672,7 +2899,6 @@ function renderPaySection(containerId, methods) {
     .join("");
 }
 
-
 const PAY_SECTION_MAP = {
   payNational: "national",
   payWallets: "wallets",
@@ -2716,27 +2942,27 @@ function registerPayment() {
   toast(`✓ Pago de ${fmt(amount)} registrado`);
 }
 
-let _payTimeRange = 'today';
+let _payTimeRange = "today";
 
 function setPayTimeFilter(range) {
   _payTimeRange = range;
-  document.querySelectorAll('.ph-tab').forEach(btn => {
-    btn.classList.remove('active');
+  document.querySelectorAll(".ph-tab").forEach((btn) => {
+    btn.classList.remove("active");
     const label = btn.textContent.toLowerCase();
-    if (range === 'today' && label === 'hoy') btn.classList.add('active');
-    if (range === 'yesterday' && label === 'ayer') btn.classList.add('active');
-    if (range === 'week' && label === 'semana') btn.classList.add('active');
-    if (range === 'month' && label === 'mes') btn.classList.add('active');
-    if (range === 'all' && label === 'todo') btn.classList.add('active');
+    if (range === "today" && label === "hoy") btn.classList.add("active");
+    if (range === "yesterday" && label === "ayer") btn.classList.add("active");
+    if (range === "week" && label === "semana") btn.classList.add("active");
+    if (range === "month" && label === "mes") btn.classList.add("active");
+    if (range === "all" && label === "todo") btn.classList.add("active");
   });
-  if (range !== 'custom') $("payFilterDate").value = '';
+  if (range !== "custom") $("payFilterDate").value = "";
   renderPaymentsTable();
 }
 
 function resetPayFilters() {
-  $("payFilterDate").value = '';
-  $("payFilterMethod").value = '';
-  setPayTimeFilter('today');
+  $("payFilterDate").value = "";
+  $("payFilterMethod").value = "";
+  setPayTimeFilter("today");
 }
 
 function renderPaymentsTable() {
@@ -2746,7 +2972,8 @@ function renderPaymentsTable() {
   const methodFilter = $("payFilterMethod")?.value || "";
 
   if (!salesLog || !salesLog.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Sin pagos registrados</td></tr>';
+    tbody.innerHTML =
+      '<tr class="empty-row"><td colspan="7">Sin pagos registrados</td></tr>';
     $("phSummaryTotal").textContent = "$0";
     $("phSummaryCount").textContent = "0";
     return;
@@ -2757,34 +2984,43 @@ function renderPaymentsTable() {
   // Filtro por fecha (Manual o Rápido)
   if (dateFilter) {
     payList = payList.filter((s) => s.timestamp.startsWith(dateFilter));
-    _payTimeRange = 'custom';
-    document.querySelectorAll('.ph-tab').forEach(btn => btn.classList.remove('active'));
-  } else if (_payTimeRange !== 'all') {
+    _payTimeRange = "custom";
+    document
+      .querySelectorAll(".ph-tab")
+      .forEach((btn) => btn.classList.remove("active"));
+  } else if (_payTimeRange !== "all") {
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = now.toISOString().split("T")[0];
 
-    if (_payTimeRange === 'today') {
-      payList = payList.filter(s => s.timestamp.startsWith(todayStr));
-    } else if (_payTimeRange === 'yesterday') {
+    if (_payTimeRange === "today") {
+      payList = payList.filter((s) => s.timestamp.startsWith(todayStr));
+    } else if (_payTimeRange === "yesterday") {
       const yesterday = new Date();
       yesterday.setDate(now.getDate() - 1);
-      const yestStr = yesterday.toISOString().split('T')[0];
-      payList = payList.filter(s => s.timestamp.startsWith(yestStr));
-    } else if (_payTimeRange === 'week') {
+      const yestStr = yesterday.toISOString().split("T")[0];
+      payList = payList.filter((s) => s.timestamp.startsWith(yestStr));
+    } else if (_payTimeRange === "week") {
       const weekAgo = new Date();
       weekAgo.setDate(now.getDate() - 7);
-      payList = payList.filter(s => new Date(s.timestamp) >= weekAgo);
-    } else if (_payTimeRange === 'month') {
+      payList = payList.filter((s) => new Date(s.timestamp) >= weekAgo);
+    } else if (_payTimeRange === "month") {
       const monthAgo = new Date();
       monthAgo.setMonth(now.getMonth() - 1);
-      payList = payList.filter(s => new Date(s.timestamp) >= monthAgo);
+      payList = payList.filter((s) => new Date(s.timestamp) >= monthAgo);
     }
   }
 
   // Filtrar por método
   if (methodFilter) {
     const methodMap = {
-      tarjeta: ["card", "tarjeta", "tarjeta debito", "tarjeta credito", "visa", "mastercard"],
+      tarjeta: [
+        "card",
+        "tarjeta",
+        "tarjeta debito",
+        "tarjeta credito",
+        "visa",
+        "mastercard",
+      ],
       pse: ["pse", "pse/transferencia"],
       nequi: ["nequi"],
       daviplata: ["daviplata"],
@@ -2793,13 +3029,14 @@ function renderPaymentsTable() {
     const filterMethods = methodMap[methodFilter] || [];
     payList = payList.filter((s) => {
       const method = (s.method || s.payment_method || "").toLowerCase();
-      return filterMethods.some(m => method.includes(m));
+      return filterMethods.some((m) => method.includes(m));
     });
   }
 
   let totalAmount = 0;
   if (!payList.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No hay pagos con los filtros seleccionados</td></tr>';
+    tbody.innerHTML =
+      '<tr class="empty-row"><td colspan="7">No hay pagos con los filtros seleccionados</td></tr>';
   } else {
     tbody.innerHTML = payList
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
@@ -2807,15 +3044,25 @@ function renderPaymentsTable() {
         totalAmount += p.total;
         const method = (p.method || p.payment_method || "N/A").toLowerCase();
         const methodIcon = getPaymentIcon(method);
+        const paymentStatus = normalizePaymentStatus(p);
+        const statusLabel = getStatusBadge(paymentStatus).label.toUpperCase();
 
         const statusClass =
-          p.payment_status === "completed" ? "s-ok" :
-            ["pending_verification", "waiting_confirmation"].includes(p.payment_status) ? "s-pending" : "s-fail";
+          paymentStatus === "completed"
+            ? "s-ok"
+            : [
+                  "pending",
+                  "pending_verification",
+                  "waiting_confirmation",
+                  "in_process",
+                ].includes(paymentStatus)
+              ? "s-pending"
+              : "s-fail";
 
         return `
           <tr>
             <td>${new Date(p.timestamp).toLocaleString()}</td>
-            <td>${p.client_name || '---'}</td>
+            <td>${p.client_name || "---"}</td>
             <td>
               <div style="display:flex; align-items:center; gap:8px;">
                 <span style="font-size:16px;">${methodIcon}</span>
@@ -2824,11 +3071,12 @@ function renderPaymentsTable() {
             </td>
             <td style="font-size:11px; color:var(--gray-text);">${p.ref || p.id.slice(0, 8)}</td>
             <td style="font-weight:700; color:var(--accent);">${fmt(p.total)}</td>
-            <td><span class="status-badge ${statusClass}">${p.payment_status || 'COMPLETED'}</span></td>
+            <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
             <td><button class="btn-ghost-sm" onclick="viewSaleDetails('${p.id}')">👁</button></td>
           </tr>
         `;
-      }).join("");
+      })
+      .join("");
   }
 
   $("phSummaryTotal").textContent = fmt(totalAmount);
@@ -2837,13 +3085,14 @@ function renderPaymentsTable() {
 
 function getPaymentIcon(method) {
   const m = method.toLowerCase();
-  if (m.includes('nequi')) return '🟣';
-  if (m.includes('daviplata')) return '🔴';
-  if (m.includes('efectivo') || m.includes('cash')) return '💵';
-  if (m.includes('tarjeta') || m.includes('visa') || m.includes('mastercard')) return '💳';
-  if (m.includes('pse') || m.includes('transferencia')) return '🏦';
-  if (m.includes('paypal')) return '🅿️';
-  return '💰';
+  if (m.includes("nequi")) return "🟣";
+  if (m.includes("daviplata")) return "🔴";
+  if (m.includes("efectivo") || m.includes("cash")) return "💵";
+  if (m.includes("tarjeta") || m.includes("visa") || m.includes("mastercard"))
+    return "💳";
+  if (m.includes("pse") || m.includes("transferencia")) return "🏦";
+  if (m.includes("paypal")) return "🅿️";
+  return "💰";
 }
 
 function getPaymentMethodDisplay(method) {
@@ -2876,11 +3125,7 @@ function getPaymentMethodDisplay(method) {
 }
 
 function getPaymentDetails(payment) {
-  const method = (
-    payment.method ||
-    payment.payment_method ||
-    ""
-  ).toLowerCase();
+  const method = (payment.method || payment.payment_method || "").toLowerCase();
   const details = payment.methodDetails || {};
 
   if (method.includes("card") || method.includes("tarjeta")) {
@@ -3062,6 +3307,17 @@ const SALE_STATUS = {
   REFUNDED: "refunded",
 };
 
+function normalizePaymentStatus(sale) {
+  const method = String(
+    sale?.payment_method || sale?.method || "",
+  ).toLowerCase();
+  const status = sale?.payment_status || "";
+  if (method.includes("efectivo") && (!status || status === "pending")) {
+    return SALE_STATUS.COMPLETED;
+  }
+  return status || SALE_STATUS.COMPLETED;
+}
+
 function getStatusBadge(status) {
   const badges = {
     pending: { label: "⏳ Pendiente", class: "s-pending", color: "#f39c12" },
@@ -3179,31 +3435,32 @@ function exportAdvancedSales(filters = {}) {
 /* ══════════════════════════════════════════════════════════
  SALES
 ══════════════════════════════════════════════════════════ */
-let _salesTimeRange = 'today';
+let _salesTimeRange = "today";
 
 function setSalesTimeFilter(range) {
   _salesTimeRange = range;
-  const container = document.querySelector('#page-sales .phc-quick-filters');
+  const container = document.querySelector("#page-sales .phc-quick-filters");
   if (container) {
-    container.querySelectorAll('.ph-tab').forEach(btn => {
-      btn.classList.remove('active');
+    container.querySelectorAll(".ph-tab").forEach((btn) => {
+      btn.classList.remove("active");
       const label = btn.textContent.toLowerCase();
-      if (range === 'today' && label === 'hoy') btn.classList.add('active');
-      if (range === 'yesterday' && label === 'ayer') btn.classList.add('active');
-      if (range === 'week' && label === 'semana') btn.classList.add('active');
-      if (range === 'month' && label === 'mes') btn.classList.add('active');
-      if (range === 'all' && label === 'todo') btn.classList.add('active');
+      if (range === "today" && label === "hoy") btn.classList.add("active");
+      if (range === "yesterday" && label === "ayer")
+        btn.classList.add("active");
+      if (range === "week" && label === "semana") btn.classList.add("active");
+      if (range === "month" && label === "mes") btn.classList.add("active");
+      if (range === "all" && label === "todo") btn.classList.add("active");
     });
   }
-  if (range !== 'custom') $("sfDate").value = '';
+  if (range !== "custom") $("sfDate").value = "";
   renderSalesTable();
 }
 
 function resetSalesFilters() {
-  $("sfDate").value = '';
-  $("sfMethod").value = '';
-  $("sfChannel").value = '';
-  setSalesTimeFilter('today');
+  $("sfDate").value = "";
+  $("sfMethod").value = "";
+  $("sfChannel").value = "";
+  setSalesTimeFilter("today");
 }
 
 function renderSalesTable() {
@@ -3217,45 +3474,56 @@ function renderSalesTable() {
 
   // Filtro por fecha (Manual o Rápido)
   if (dateFilter) {
-    filtered = filtered.filter(s => s.timestamp.startsWith(dateFilter));
-    _salesTimeRange = 'custom';
-    const container = document.querySelector('#page-sales .phc-quick-filters');
-    if (container) container.querySelectorAll('.ph-tab').forEach(btn => btn.classList.remove('active'));
-  } else if (_salesTimeRange !== 'all') {
+    filtered = filtered.filter((s) => s.timestamp.startsWith(dateFilter));
+    _salesTimeRange = "custom";
+    const container = document.querySelector("#page-sales .phc-quick-filters");
+    if (container)
+      container
+        .querySelectorAll(".ph-tab")
+        .forEach((btn) => btn.classList.remove("active"));
+  } else if (_salesTimeRange !== "all") {
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = now.toISOString().split("T")[0];
 
-    if (_salesTimeRange === 'today') {
-      filtered = filtered.filter(s => s.timestamp.startsWith(todayStr));
-    } else if (_salesTimeRange === 'yesterday') {
+    if (_salesTimeRange === "today") {
+      filtered = filtered.filter((s) => s.timestamp.startsWith(todayStr));
+    } else if (_salesTimeRange === "yesterday") {
       const yesterday = new Date();
       yesterday.setDate(now.getDate() - 1);
-      const yestStr = yesterday.toISOString().split('T')[0];
-      filtered = filtered.filter(s => s.timestamp.startsWith(yestStr));
-    } else if (_salesTimeRange === 'week') {
+      const yestStr = yesterday.toISOString().split("T")[0];
+      filtered = filtered.filter((s) => s.timestamp.startsWith(yestStr));
+    } else if (_salesTimeRange === "week") {
       const weekAgo = new Date();
       weekAgo.setDate(now.getDate() - 7);
-      filtered = filtered.filter(s => new Date(s.timestamp) >= weekAgo);
-    } else if (_salesTimeRange === 'month') {
+      filtered = filtered.filter((s) => new Date(s.timestamp) >= weekAgo);
+    } else if (_salesTimeRange === "month") {
       const monthAgo = new Date();
       monthAgo.setMonth(now.getMonth() - 1);
-      filtered = filtered.filter(s => new Date(s.timestamp) >= monthAgo);
+      filtered = filtered.filter((s) => new Date(s.timestamp) >= monthAgo);
     }
   }
 
   // Filtros adicionales
   if (methodFilter) {
-    filtered = filtered.filter(s => (s.payment_method || s.method || '').toLowerCase().includes(methodFilter.toLowerCase()));
+    filtered = filtered.filter((s) =>
+      (s.payment_method || s.method || "")
+        .toLowerCase()
+        .includes(methodFilter.toLowerCase()),
+    );
   }
   if (channelFilter) {
-    filtered = filtered.filter(s => (s.channel || 'fisica').toLowerCase() === channelFilter.toLowerCase());
+    filtered = filtered.filter(
+      (s) =>
+        (s.channel || "fisica").toLowerCase() === channelFilter.toLowerCase(),
+    );
   }
 
   let totalRevenue = 0;
   tbody.innerHTML = "";
 
   if (filtered.length === 0) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Sin ventas en este periodo</td></tr>';
+    tbody.innerHTML =
+      '<tr class="empty-row"><td colspan="9">Sin ventas en este periodo</td></tr>';
   } else {
     filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     filtered.forEach((s, idx) => {
@@ -3264,13 +3532,13 @@ function renderSalesTable() {
       row.innerHTML = `
         <td style="color:var(--gray-text);font-size:11px">#${filtered.length - idx}</td>
         <td style="font-size:12px">${new Date(s.timestamp).toLocaleString()}</td>
-        <td><span class="status-badge s-fisica">${s.channel || 'Física'}</span></td>
-        <td>${s.vendor || '---'}</td>
-        <td style="color:var(--gray-text)">${s.client_name || s.client || 'Mostrador'}</td>
-        <td style="font-size:11px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="${s.items.map(i => `${i.name} x${i.qty}`).join(', ')}">
-          ${s.items.map(i => `${i.name} x${i.qty}`).join(', ')}
+        <td><span class="status-badge s-fisica">${s.channel || "Física"}</span></td>
+        <td>${s.vendor || "---"}</td>
+        <td style="color:var(--gray-text)">${s.client_name || s.client || "Mostrador"}</td>
+        <td style="font-size:11px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="${s.items.map((i) => `${i.name} x${i.qty}`).join(", ")}">
+          ${s.items.map((i) => `${i.name} x${i.qty}`).join(", ")}
         </td>
-        <td><span class="status-badge s-ok">${s.payment_method || s.method || 'Efectivo'}</span></td>
+        <td><span class="status-badge s-ok">${s.payment_method || s.method || "Efectivo"}</span></td>
         <td style="font-weight:700; color:var(--accent)">${fmt(s.total)}</td>
         <td>
           <div style="display:flex; gap:5px; justify-content:center;">
@@ -3289,6 +3557,94 @@ function renderSalesTable() {
   $("sv2").textContent = filtered.length;
   const avg = filtered.length > 0 ? totalRevenue / filtered.length : 0;
   $("sv3").textContent = fmt(Math.round(avg));
+}
+
+function viewSaleDetails(id) {
+  const sale = salesLog.find((s) => String(s.id) === String(id));
+  if (!sale) {
+    toast("⚠ Venta no encontrada");
+    return;
+  }
+
+  let overlay = $("saleDetailsOverlay");
+  let modal = $("saleDetailsModal");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "saleDetailsOverlay";
+    overlay.className = "modal-overlay";
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeSaleDetails();
+    });
+    document.body.appendChild(overlay);
+  }
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "saleDetailsModal";
+    modal.className = "modal";
+    modal.style.maxWidth = "680px";
+    document.body.appendChild(modal);
+  }
+
+  const items = Array.isArray(sale.items) ? sale.items : [];
+  modal.innerHTML = `
+    <div class="modal-header">
+      <h3>Detalle de venta</h3>
+      <button class="modal-close" onclick="closeSaleDetails()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:18px">
+        <div><strong>ID:</strong><br>${esc(sale.id)}</div>
+        <div><strong>Fecha:</strong><br>${fmtDate(sale.timestamp)}</div>
+        <div><strong>Vendedor:</strong><br>${esc(sale.vendor || "Vendedor")}</div>
+        <div><strong>Cliente:</strong><br>${esc(sale.client || "Mostrador")}</div>
+        <div><strong>Método:</strong><br>${esc(sale.payment_method || sale.method || "Efectivo")}</div>
+        <div><strong>Estado:</strong><br>${esc(sale.payment_status || "completed")}</div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Talla</th>
+              <th>Cant.</th>
+              <th>Precio</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items
+              .map(
+                (item) => `
+                  <tr>
+                    <td>${esc(item.name || item.product_name || "Producto")}</td>
+                    <td>${esc(item.size || "U")}</td>
+                    <td>${Number(item.qty || 1)}</td>
+                    <td>${fmt(item.price || 0)}</td>
+                    <td>${fmt(Number(item.price || 0) * Number(item.qty || 1))}</td>
+                  </tr>
+                `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:18px;margin-top:18px;font-size:16px">
+        <span>Subtotal: <strong>${fmt(sale.subtotal || 0)}</strong></span>
+        <span>Descuento: <strong>${Number(sale.discount || 0)}%</strong></span>
+        <span>Total: <strong style="color:var(--accent)">${fmt(sale.total || 0)}</strong></span>
+      </div>
+    </div>
+  `;
+
+  overlay.classList.add("open");
+  modal.classList.add("open");
+}
+
+function closeSaleDetails() {
+  const overlay = $("saleDetailsOverlay");
+  const modal = $("saleDetailsModal");
+  if (overlay) overlay.classList.remove("open");
+  if (modal) modal.classList.remove("open");
 }
 
 async function deleteSale(id) {
@@ -3434,12 +3790,10 @@ async function loadAnalyticsData() {
     let summaryData = {};
 
     if (channelRes.ok) channelData = await channelRes.json().catch(() => []);
-    if (productsRes.ok)
-      productsData = await productsRes.json().catch(() => []);
+    if (productsRes.ok) productsData = await productsRes.json().catch(() => []);
     if (inventoryRes.ok)
       inventoryData = await inventoryRes.json().catch(() => []);
-    if (summaryRes.ok)
-      summaryData = await summaryRes.json().catch(() => ({}));
+    if (summaryRes.ok) summaryData = await summaryRes.json().catch(() => ({}));
 
     // Guardar en variables globales para usar en gráficos
     window.analyticsCache = {
@@ -3547,7 +3901,6 @@ function renderProductChart(data) {
   });
 }
 
-
 /* ══════════════════════════════════════════════════════════
  TOGGLE PAY SECTION (colapsar/expandir secciones de pago)
 ══════════════════════════════════════════════════════════ */
@@ -3562,7 +3915,9 @@ async function loadLowStockAlerts() {
     const alertsDiv = $("lowStockAlerts");
 
     // Si no hay productos bajo 100, u ocultar si ninguno baja de 50 (según petición)
-    const hasCritical = lowStockProducts.some(p => (p.total_stock || 0) <= 50);
+    const hasCritical = lowStockProducts.some(
+      (p) => (p.total_stock || 0) <= 50,
+    );
 
     if (!lowStockProducts || lowStockProducts.length === 0 || !hasCritical) {
       alertsDiv.innerHTML = "";
@@ -3581,9 +3936,9 @@ async function loadLowStockAlerts() {
         </div>
         <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:10px;position:relative;z-index:1">
           ${lowStockProducts
-        .slice(0, 8)
-        .map(
-          (p) => `
+            .slice(0, 8)
+            .map(
+              (p) => `
             <div onclick="navigateTo('inventory'); setTimeout(() => editProduct('${p.product_id || p.id}'), 100);" 
                  style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; font-size: 11px; color: var(--accent); transition: all 0.3s; cursor: pointer; backdrop-filter: blur(5px);"
                  onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.borderColor='var(--accent)'"
@@ -3591,8 +3946,8 @@ async function loadLowStockAlerts() {
               <strong style="color:#ffffff">${p.name.slice(0, 25)}:</strong> <span style="color:var(--orange); font-weight:700">${p.total_stock} unidades</span>
             </div>
           `,
-        )
-        .join("")}
+            )
+            .join("")}
         </div>
       </div>
     `;
@@ -3607,8 +3962,8 @@ async function loadLowStockAlerts() {
 async function loadVIPCustomersData() {
   try {
     // Sincronizar clientes primero
-    await apiFetch(`${API_URL}/customers/sync`, { method: "POST" }).catch(
-      (e) => console.log("Sync error:", e),
+    await apiFetch(`${API_URL}/customers/sync`, { method: "POST" }).catch((e) =>
+      console.log("Sync error:", e),
     );
 
     const [vipRes, segmentRes] = await Promise.all([
@@ -3765,11 +4120,7 @@ async function loadForecastData() {
           f.trend === "up" ? "📈" : f.trend === "down" ? "📉" : "➡️";
         const confidence = f.confidence_score || 0;
         const confidenceColor =
-          confidence > 75
-            ? "#2ecc71"
-            : confidence > 50
-              ? "#f39c12"
-              : "#e74c3c";
+          confidence > 75 ? "#2ecc71" : confidence > 50 ? "#f39c12" : "#e74c3c";
 
         return `
         <tr>
@@ -3803,7 +4154,6 @@ function togglePaySection(sectionId) {
 ══════════════════════════════════════════════════════════ */
 let _editingPayMethodId = null;
 let _editingPaySectionKey = null;
-
 
 /* ══════════════════════════════════════════════════════════
  MODAL POS PAYMENT
@@ -4133,6 +4483,7 @@ function processPOSSaleWithPayment(paymentDetails) {
     const total = Math.round(sub * (1 - disc / 100));
 
     const items = posCart.map((i) => ({
+      id: i.id,
       name: i.name,
       qty: i.qty,
       price: i.price,
@@ -4158,37 +4509,20 @@ function processPOSSaleWithPayment(paymentDetails) {
     // Guardar venta
     (async () => {
       try {
-        await apiFetch(`${API_URL}/sales`, {
+        const res = await apiFetch(`${API_URL}/sales`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(sale),
         });
-        fetchSalesLog();
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          throw new Error(error.error || `HTTP ${res.status}`);
+        }
+        await fetchSalesLog();
       } catch (e) {
         console.error("Error saving POS sale:", e);
-      }
-
-      // Actualizar stock
-      for (const item of posCart) {
-        const p = inventory.find((x) => String(x.id) === String(item.id));
-        if (p) {
-          let rem = item.qty;
-          for (const s of SIZES) {
-            if (rem <= 0) break;
-            const take = Math.min(p.stock[s] || 0, rem);
-            p.stock[s] = (p.stock[s] || 0) - take;
-            rem -= take;
-          }
-          try {
-            await apiFetch(`${API_URL}/products`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ ...p, category: p.cat, image: p.img }),
-            });
-          } catch (e) {
-            console.error("Error syncing stock:", e);
-          }
-        }
+        toast(`❌ No se pudo guardar la venta: ${e.message}`);
+        return;
       }
 
       toast(`✅ Venta confirmada: ${fmt(total)} — ${paymentDetails.method}`);
@@ -4395,6 +4729,8 @@ async function handleStockUpload(event) {
  DOM READY — listeners finales
 ══════════════════════════════════════════════════════════ */
 document.addEventListener("DOMContentLoaded", () => {
+  bindSidebarNavigation();
+
   // KPI cards → navegación
   const kpiSales = $("kpiCardSales");
   if (kpiSales) kpiSales.addEventListener("click", () => navigateTo("sales"));

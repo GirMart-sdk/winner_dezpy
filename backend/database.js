@@ -92,7 +92,10 @@ if (DB_TYPE === 'postgres') {
   const path    = require('path');
 
   // Crear BD en la carpeta backend
-  const dbPath = path.join(__dirname, process.env.DB_PATH || 'winner_store.db');
+  const configuredDbPath = process.env.DB_PATH || 'winner_store.db';
+  const dbPath = path.isAbsolute(configuredDbPath)
+    ? configuredDbPath
+    : path.resolve(__dirname, configuredDbPath);
 
   console.log('📦 Inicializando SQLite...');
   console.log('   Ruta:', dbPath);
@@ -312,4 +315,3 @@ function initializeSchema() {
 }
 
 module.exports = db;
-
